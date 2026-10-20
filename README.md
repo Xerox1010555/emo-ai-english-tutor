@@ -28,7 +28,7 @@ npm run dev
 
 ## Database
 
-Three migrations, applied in order:
+Four migrations, applied in order:
 
 1. `supabase/migrations/20260830044010_emo_schema.sql` — original schema
    (profiles, lessons, plans, chat, quizzes, vocabulary, level history)
@@ -47,14 +47,25 @@ Three migrations, applied in order:
      `learning_plan(user_id,week_number)`, `vocabulary(user_id,lower(word))`
    - atomic RPCs: `complete_quest(quest_key)`, `award_xp(amount)`,
      `bump_recurring_mistake(label, category)`
+4. `supabase/migrations/20261021000000_emo_weekly_push_pwa.sql` — weekly
+   reports, Web Push and the interface language:
+   - `profiles.ui_language` (en | ar) — the app interface, separate from the
+     tutor's Arabic support
+   - `push_subscriptions` (one row per device)
+   - `weekly_reports` (the cached AI report, one per learner per week)
+   - `due_push_subscriptions()` — who is due for a reminder right now
 
-**The app runs without the third migration.** Every new relation is read
-defensively and falls back to a computed value; the new RPCs are wrapped in
+**The app runs without the third and fourth migrations.** Every new relation is
+read defensively and falls back to a computed value; the new RPCs are wrapped in
 fallbacks that do the same work client-side. Quest completion falls back to
-local storage. Apply it for the full behaviour:
+local storage. Apply them for the full behaviour:
 
 ```bash
-supabase db push          # or paste the file into the SQL editor
+# with the CLI
+supabase db push
+
+# or without it — a personal access token is enough
+SUPABASE_ACCESS_TOKEN=sbp_xxx node scripts/deploy-migrations.mjs
 ```
 
 ## Connecting the AI tutor
@@ -131,7 +142,15 @@ The mode also changes reminder wording.
 - **Schedule** — appointments with natural-language dates (English and
   Arabic) and reminders that actually fire.
 - **Reminders** — a scheduler that runs on an interval, respects quiet hours
-  and the weekly frequency, and never repeats a notification.
+  and the weekly frequency, and never repeats a notification. With Web Push
+  configured they arrive even when the app is closed.
+- **Weekly report** — this week against last week (lessons, quests, XP, quiz
+  accuracy, active days, chat turns, words mastered), the skill that moved and
+  the skill to protect, plus an optional AI narrative that may only narrate the
+  numbers the device computed.
+- **Installable** — a PWA (manifest, icons, service worker, offline shell).
+- **Two languages** — the interface itself is available in English and Arabic
+  with a full RTL layout; the tutor's own Arabic support is a separate setting.
 
 ## Architecture
 

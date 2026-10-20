@@ -14,6 +14,13 @@ import { getQuizSet, quizBank } from '../src/lib/quizData';
 import { parseNaturalDate } from '../src/lib/dateParser';
 import { determinePlacementLevel } from '../src/lib/placementData';
 import { speakingAttemptPassed } from '../src/lib/learning/speech';
+import {
+  buildDailyActivity,
+  buildWeeklyComparison,
+  dayKey,
+  fallbackHeadline,
+  weekStart,
+} from '../src/lib/learning/weeklyReport';
 import type { CEFRLevel, Skill } from '../src/lib/types';
 
 let passed = 0;
@@ -510,6 +517,70 @@ check(
 check(
   'the grammar quest still carries its answer',
   grammarQuests.every((q) => typeof q?.answer === 'string' && q.answer.length > 0),
+);
+
+// ------------------------------------------------ regression: weekly report ----
+section('Weekly report computation');
+
+const monday = new Date(2026, 9, 19); // a Monday
+const today = new Date(2026, 9, 21); // the Wednesday of that week
+const sunday = new Date(2026, 9, 25);
+
+const reportData = {
+  lessons: [
+    { date: '2026-10-19', completed: true, duration_minutes: 15 },
+    { date: '2026-10-20', completed: true, duration_minutes: 20 },
+    { date: '2026-10-21', completed: true, duration_minutes: 10 },
+    { date: '2026-10-12', completed: true, duration_minutes: 15 },
+  ],
+  quests: [
+    { date: '2026-10-19', completed: true, xp_reward: 20 },
+    { date: '2026-10-20', completed: true, xp_reward: 20 },
+    { date: '2026-10-12', completed: true, xp_reward: 20 },
+  ],
+  quizzes: [
+    { taken_at: '2026-10-20T10:00:00Z', score: 4, total: 5 },
+    { taken_at: '2026-10-12T10:00:00Z', score: 2, total: 5 },
+  ],
+  chat: [
+    { created_at: '2026-10-20T10:00:00Z', role: 'user' },
+    { created_at: '2026-10-20T10:01:00Z', role: 'emo' },
+  ],
+  vocabulary: [{ created_at: '2026-10-19T10:00:00Z', mastered: true, box: 3 }],
+  skillProgress: [
+    { skill: 'Grammar' as Skill, score: 40, at: '2026-10-20' },
+    { skill: 'Grammar' as Skill, score: 20, at: '2026-10-12' },
+    { skill: 'Reading' as Skill, score: 60, at: '2026-10-20' },
+  ],
+};
+
+const comparison = buildWeeklyComparison(reportData, today, [
+  'Grammar',
+  'Reading',
+] as Skill[]);
+
+check('the week starts on Monday', weekStart(monday) === '2026-10-19', weekStart(monday));
+check('a Sunday belongs to the same week', weekStart(sunday) === '2026-10-19', weekStart(sunday));
+check("this week's lessons are counted", comparison.thisWeek.lessons === 3, String(comparison.thisWeek.lessons));
+check("last week's lessons are counted", comparison.lastWeek.lessons === 1, String(comparison.lastWeek.lessons));
+check('the lesson delta is correct', comparison.deltas.lessons === 2, String(comparison.deltas.lessons));
+check('quiz accuracy is a percentage', comparison.thisWeek.quizAccuracy === 80, String(comparison.thisWeek.quizAccuracy));
+check('active days are counted once', comparison.thisWeek.activeDays === 3, String(comparison.thisWeek.activeDays));
+check('the improved skill is detected', comparison.bestSkill?.skill === 'Grammar', String(comparison.bestSkill?.skill));
+check('the weakest skill is detected', comparison.focusSkill?.skill === 'Grammar', String(comparison.focusSkill?.skill));
+check(
+  'a learner who did nothing still gets an honest headline',
+  fallbackHeadline({ ...comparison, thisWeek: { ...comparison.thisWeek, lessons: 0, quests: 0, activeDays: 0 } })
+    .includes('open'),
+);
+check(
+  'the activity series covers seven days',
+  buildDailyActivity(reportData, 7, today).length === 7,
+);
+
+check(
+  'the day key is the local calendar day',
+  dayKey(new Date(2026, 0, 15, 23, 30)) === '2026-01-15',
 );
 
 // --------------------------------------------------------------- summary ----

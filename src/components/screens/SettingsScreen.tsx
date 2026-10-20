@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import {
   Bell,
   Globe,
+  Languages,
   LogOut,
   Mail,
   Moon,
   RotateCcw,
+  Smartphone,
   Target,
   Plus,
   X,
@@ -23,6 +25,14 @@ import type { CEFRLevel } from '@/lib/types';
 import { useNotifications } from '@/context/NotificationContext';
 import { useTutor } from '@/context/TutorContext';
 import { aiProviders, resolveProvider } from '@/lib/ai/provider';
+import { useI18n } from '@/lib/i18n';
+import {
+  isPushSubscribed,
+  pushEnabled,
+  pushSupported,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '@/lib/notifications/push';
 
 const levels: CEFRLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -49,6 +59,64 @@ export function SettingsScreen() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushAvailable, setPushAvailable] = useState(false);
+  const [pushMessage, setPushMessage] = useState(
+    'Turn on background reminders to get nudges with the app closed.',
+  );
+
+  const { language: uiLanguage, setLanguage: setUiLanguage } = useI18n();
+  const { t } = useI18n();
+
+  // Is this device already subscribed to push?
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const supported = pushSupported() && pushEnabled();
+      if (cancelled) return;
+      setPushAvailable(supported);
+      if (!supported) {
+        setPushMessage('Background reminders are not available in this browser.');
+        return;
+      }
+      const subscribed = await isPushSubscribed();
+      if (cancelled) return;
+      setPushOn(subscribed);
+      setPushMessage(
+        subscribed
+          ? 'Reminders can arrive when the app is closed.'
+          : 'Turn on background reminders to get nudges with the app closed.',
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function togglePush() {
+    if (!user) return;
+    setPushBusy(true);
+    setSaveError(null);
+
+    if (pushOn) {
+      await unsubscribeFromPush(user.id);
+      setPushOn(false);
+      setPushMessage('Turn on background reminders to get nudges with the app closed.');
+      setPushBusy(false);
+      return;
+    }
+
+    const result = await subscribeToPush(user.id);
+    setPushOn(result.ok);
+    setPushMessage(
+      result.ok
+        ? 'Reminders can arrive when the app is closed.'
+        : (result.message ?? 'Could not enable background reminders.'),
+    );
+    if (!result.ok) setSaveError(result.message ?? 'Could not enable background reminders.');
+    setPushBusy(false);
+  }
 
   const currentLevel = profile?.current_level ?? 'A1';
   // The reminder time has a single source of truth: the notification context
@@ -153,7 +221,7 @@ export function SettingsScreen() {
 
   return (
     <div className="px-5 py-6 space-y-6">
-      <PageHeader title="Settings" subtitle="Manage your tutor, your goals, and your reminders" />
+      <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       {/* Account */}
       <Card className="flex items-center gap-4">
@@ -163,8 +231,7 @@ export function SettingsScreen() {
         <div className="min-w-0">
           <p className="text-sm font-semibold text-white truncate">{user?.email}</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Level {currentLevel} · Member since{' '}
-            {profile?.created_at
+            {t('common.level')} {currentLevel} · {t('settings.placement')} {profile?.created_at
               ? new Date(profile.created_at).toLocaleDateString('en-US', {
                   month: 'short',
                   year: 'numeric',
@@ -176,13 +243,13 @@ export function SettingsScreen() {
 
       {/* Assistant mode */}
       <div>
-        <SectionHeader title="Assistant personality" />
+        <SectionHeader title={t('settings.mode')} />
         <AssistantModeCards />
       </div>
 
       {/* AI status */}
       <div>
-        <SectionHeader title="AI tutor connection" />
+        <SectionHeader title={t('settings.connection')} />
         <Card className="space-y-2.5">
           <div className="flex items-center gap-2.5">
             {providerConfigured ? (
@@ -223,7 +290,7 @@ export function SettingsScreen() {
 
       {/* Target level */}
       <div>
-        <SectionHeader title="Target level" />
+        <SectionHeader title={t('settings.target')} />
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <Target className="w-4 h-4 text-primary-400" />
@@ -256,7 +323,7 @@ export function SettingsScreen() {
 
       {/* Goals */}
       <div>
-        <SectionHeader title="Learning goals" />
+        <SectionHeader title={t('settings.goals')} />
         <Card className="space-y-3.5">
           <p className="text-xs text-gray-500 leading-relaxed">
             The tutor uses these to pick exercises and questions. Up to 5.
@@ -327,7 +394,7 @@ export function SettingsScreen() {
 
       {/* Notifications */}
       <div>
-        <SectionHeader title="Reminders" />
+        <SectionHeader title={t('settings.reminders')} />
         <Card className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -448,6 +515,74 @@ export function SettingsScreen() {
         </Card>
       </div>
 
+      {/* Interface language */}
+      <div>
+        <SectionHeader title={t('settings.interface')} />
+        <Card className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Languages className="w-4 h-4 text-primary-400" />
+            <p className="text-sm text-gray-300">
+              The language of the app itself. The tutor keeps its own setting below.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {([
+              { id: 'en', label: 'English' },
+              { id: 'ar', label: 'العربية' },
+            ] as const).map((option) => {
+              const active = uiLanguage === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => setUiLanguage(option.id)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                    active
+                      ? 'bg-primary-500/15 text-primary-300 border border-primary-500/25'
+                      : 'bg-white/[0.05] text-gray-400 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* Background reminders (Web Push) */}
+      <div>
+        <SectionHeader title="Background reminders" />
+        <Card className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Smartphone className="w-4 h-4 text-accent-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm text-gray-300">Push notifications</p>
+                <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                  {pushMessage}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={togglePush}
+              role="switch"
+              aria-checked={pushOn}
+              aria-label="Toggle background reminders"
+              disabled={pushBusy || !pushAvailable}
+              className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors disabled:opacity-40 ${
+                pushOn ? 'bg-accent-500' : 'bg-white/[0.1]'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200 ${
+                  pushOn ? 'left-[22px]' : 'left-0.5'
+                }`}
+              />
+            </button>
+          </div>
+        </Card>
+      </div>
+
       {/* Language */}
       <div>
         <SectionHeader title="Language support" />
@@ -508,7 +643,7 @@ export function SettingsScreen() {
 
       {/* Placement */}
       <div>
-        <SectionHeader title="Placement" />
+        <SectionHeader title={t('settings.placement')} />
         <Card className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white">Retake placement test</p>
@@ -527,7 +662,7 @@ export function SettingsScreen() {
 
       {/* Sign out */}
       <Button fullWidth variant="danger" onClick={signOut}>
-        <LogOut className="w-4 h-4" /> Sign out
+        <LogOut className="w-4 h-4" /> {t('settings.signout')}
       </Button>
     </div>
   );

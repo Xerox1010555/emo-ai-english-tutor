@@ -11,6 +11,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/lib/i18n';
 import {
   gradeVocab,
   intervalForBox,
@@ -33,6 +34,7 @@ type Phase = 'browse' | 'review';
 
 export function VocabularyScreen({ onNavigate }: VocabularyScreenProps) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [deck, setDeck] = useState<VocabItem[]>([]);
   const [due, setDue] = useState<VocabItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,11 +218,11 @@ export function VocabularyScreen({ onNavigate }: VocabularyScreenProps) {
   return (
     <div className="px-5 py-6 space-y-6">
       <PageHeader
-        title="Vocabulary"
-        subtitle="Words you are learning, reviewed with spaced repetition"
+        title={t('vocab.title')}
+        subtitle={t('vocab.subtitle')}
         action={
           <Button size="sm" variant="secondary" onClick={() => setAdding((v) => !v)}>
-            <Plus className="w-4 h-4" /> Add
+            <Plus className="w-4 h-4" /> {t('vocab.add')}
           </Button>
         }
       />
@@ -267,9 +269,9 @@ export function VocabularyScreen({ onNavigate }: VocabularyScreenProps) {
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard icon={BookMarked} label="Words" value={String(deck.length)} tone="primary" />
-        <StatCard icon={Sparkles} label="Due now" value={String(due.length)} tone="accent" />
-        <StatCard icon={Check} label="Mastered" value={String(mastered)} tone="success" />
+        <StatCard icon={BookMarked} label={t('vocab.words')} value={String(deck.length)} tone="primary" />
+        <StatCard icon={Sparkles} label={t('vocab.due')} value={String(due.length)} tone="accent" />
+        <StatCard icon={Check} label={t('vocab.mastered')} value={String(mastered)} tone="success" />
       </div>
 
       {due.length > 0 && (
@@ -294,11 +296,11 @@ export function VocabularyScreen({ onNavigate }: VocabularyScreenProps) {
           <Card>
             <EmptyState
               icon={BookMarked}
-              title="No words yet"
-              body="Add words here, or save the words from a lesson into your deck."
+              title={t('vocab.empty.title')}
+              body={t('vocab.empty.body')}
               action={
                 <Button size="sm" variant="secondary" onClick={() => onNavigate('roadmap')}>
-                  Open today's lesson
+                  {t('roadmap.lesson')}
                 </Button>
               }
             />

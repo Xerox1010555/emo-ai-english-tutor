@@ -72,6 +72,15 @@ export default {
         card: '0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6)',
         lift: '0 8px 32px -8px rgba(0, 0, 0, 0.7)',
         glow: '0 0 0 1px rgba(239, 68, 68, 0.2), 0 8px 32px -8px rgba(239, 68, 68, 0.4)',
+        // Glass: a coloured ambient shadow that matches the surface, not a
+        // generic black drop.
+        glass:
+          'inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 40px -24px rgba(0,0,0,0.9), 0 4px 16px -12px rgba(99,102,241,0.35)',
+        'glass-lg':
+          'inset 0 1px 0 rgba(255,255,255,0.10), 0 32px 64px -28px rgba(0,0,0,0.95), 0 8px 24px -16px rgba(239,68,68,0.28)',
+        'glow-primary': '0 10px 40px -12px rgba(239,68,68,0.55)',
+        'glow-accent': '0 10px 40px -12px rgba(59,130,246,0.5)',
+        'glow-success': '0 10px 40px -12px rgba(34,197,94,0.45)',
       },
       transitionTimingFunction: {
         premium: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -88,6 +97,7 @@ export default {
         'float': 'float 3s ease-in-out infinite',
         'typing': 'typing 1.4s ease-in-out infinite',
         'pop': 'pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'spin-slow': 'spin 14s linear infinite',
       },
       keyframes: {
         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },

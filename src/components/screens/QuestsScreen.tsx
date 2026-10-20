@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 import {
   Braces,
   BookA,
@@ -44,6 +45,7 @@ interface QuestsScreenProps {
 export function QuestsScreen({ onNavigate }: QuestsScreenProps) {
   const { user } = useAuth();
   const { profileSnapshot, refreshSnapshot } = useTutor();
+  const { t } = useI18n();
   const { quests, loading, completedCount, earnedXp, totalXp, allDone, completeQuest } =
     useDailyQuests(user?.id ?? null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -81,8 +83,8 @@ export function QuestsScreen({ onNavigate }: QuestsScreenProps) {
   return (
     <div className="px-5 py-6 space-y-6">
       <PageHeader
-        title="Daily Quests"
-        subtitle="Generated from your level and the skills that need work"
+        title={t('quests.title')}
+        subtitle={t('quests.subtitle')}
       />
 
       {/* Progress summary */}
@@ -122,11 +124,11 @@ export function QuestsScreen({ onNavigate }: QuestsScreenProps) {
         <Card>
           <EmptyState
             icon={Target}
-            title="No quests today"
-            body="Complete a lesson or a chat session and tomorrow's quests will adapt to what you did."
+            title={t('quests.empty.title')}
+            body={t('quests.empty.body')}
             action={
               <Button size="sm"               onClick={() => onNavigate('roadmap')}>
-                Go to today's lesson
+                {t('roadmap.lesson')}
               </Button>
             }
           />

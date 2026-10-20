@@ -12,6 +12,7 @@ import { ProgressScreen } from '@/components/screens/ProgressScreen';
 import { AppointmentsScreen } from '@/components/screens/AppointmentsScreen';
 import { QuizScreen } from '@/components/screens/QuizScreen';
 import { VocabularyScreen } from '@/components/screens/VocabularyScreen';
+import { WeeklyReportScreen } from '@/components/screens/WeeklyReportScreen';
 import { SettingsScreen } from '@/components/screens/SettingsScreen';
 import { PageTransition } from '@/components/ui/motion';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -127,6 +128,7 @@ function App() {
           {activeTab === 'progress' && <ProgressScreen onNavigate={setActiveTab} />}
           {activeTab === 'appointments' && <AppointmentsScreen />}
           {activeTab === 'vocabulary' && <VocabularyScreen onNavigate={setActiveTab} />}
+          {activeTab === 'report' && <WeeklyReportScreen />}
           {activeTab === 'settings' && <SettingsScreen />}
           {activeTab === 'quiz' && <QuizScreen onNavigate={setActiveTab} />}
         </PageTransition>

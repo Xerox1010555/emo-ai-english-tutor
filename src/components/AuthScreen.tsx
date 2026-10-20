@@ -1,13 +1,17 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ui/Button';
+import { MeshBackground } from '@/components/ui/MeshBackground';
 import { Mail, Lock, ArrowRight, Sparkles, CheckCircle2, KeyRound } from 'lucide-react';
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,31 +55,33 @@ export function AuthScreen() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Ambient background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-accent-500/5 rounded-full blur-3xl" />
-      </div>
+      <MeshBackground />
 
       <div className="relative flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
         {/* Logo */}
-        <div className="flex flex-col items-center mb-12 animate-fade-up">
+        <div className="flex flex-col items-center mb-10 animate-fade-up">
           <div className="relative mb-5">
-            <div className="w-20 h-20 rounded-3xl glass-strong flex items-center justify-center">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg shadow-primary-500/30">
-                <span className="text-2xl font-extrabold text-white font-sans">E</span>
+            <motion.div
+              className="w-24 h-24 rounded-[28px] glass-panel flex items-center justify-center shadow-glass-lg"
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 via-primary-500 to-primary-700 flex items-center justify-center shadow-glow-primary">
+                <span className="text-3xl font-extrabold text-white font-sans">E</span>
               </div>
-            </div>
-            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary-500/20 animate-pulse-ring" />
+            </motion.div>
+            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary-500/30 animate-pulse-ring" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white font-sans tracking-tight">Emo</h1>
-          <p className="text-gray-400 text-sm mt-1.5 text-center">
-            Your personal AI English learning assistant
+          <h1 className="text-4xl font-extrabold text-white font-sans tracking-tight text-gradient-brand">
+            Emo
+          </h1>
+          <p className="text-gray-400 text-sm mt-2 text-center leading-relaxed">
+            {t('auth.tagline')}
           </p>
         </div>
 
         {/* Auth form */}
-        <div className="glass rounded-3xl p-6 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+        <div className="glass-panel rounded-3xl p-6 animate-fade-up shadow-glass-lg" style={{ animationDelay: '0.1s' }}>
           {mode !== 'forgot' && (
             <div className="flex gap-2 mb-6 p-1 bg-black/30 rounded-xl">
               <button
@@ -116,7 +122,9 @@ export function AuthScreen() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-400 mb-1.5 block">Email</label>
+              <label className="text-xs font-medium text-gray-400 mb-1.5 block">
+                {t('auth.email')}
+              </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
@@ -132,7 +140,9 @@ export function AuthScreen() {
 
             {mode !== 'forgot' && (
               <div>
-                <label className="text-xs font-medium text-gray-400 mb-1.5 block">Password</label>
+                <label className="text-xs font-medium text-gray-400 mb-1.5 block">
+                {t('auth.password')}
+              </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
@@ -178,18 +188,18 @@ export function AuthScreen() {
               {loading
                 ? 'Please wait...'
                 : mode === 'signin'
-                  ? 'Sign In'
+                  ? t('auth.signin')
                   : mode === 'signup'
-                    ? 'Create Account'
-                    : 'Send reset link'}
-              {!loading && <ArrowRight className="w-4 h-4" />}
+                    ? t('auth.create')
+                    : t('auth.resetSend')}
+              {!loading && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
             </Button>
           </form>
         </div>
 
         <div className="flex items-center gap-3 mt-8 text-xs text-gray-600 animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Adaptive lessons, daily practice, progress tracking, and a conversational tutor.</span>
+          <span>{t('auth.footer')}</span>
         </div>
       </div>
     </div>

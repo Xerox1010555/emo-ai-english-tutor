@@ -94,10 +94,19 @@ Deno.serve(async (req) => {
     const { text, model } = await callModel(
       provider,
       [
-        { role: 'system', content: buildSystemPrompt(input) },
-        { role: 'user', content: input.skill
-          ? `Write today's ${input.skill} lesson.`
-          : "Write today's lesson." },
+        {
+          role: 'system',
+          content: input.kind === 'report' ? buildReportPrompt(input) : buildSystemPrompt(input),
+        },
+        {
+          role: 'user',
+          content:
+            input.kind === 'report'
+              ? 'Write my weekly report.'
+              : input.skill
+                ? `Write today's ${input.skill} lesson.`
+                : "Write today's lesson.",
+        },
       ],
       {
         temperature: Number.isFinite(temperature) ? temperature : 0.6,
@@ -105,6 +114,14 @@ Deno.serve(async (req) => {
         signal: controller.signal,
       },
     );
+
+    if (input.kind === 'report') {
+      const report = validateReport(extractJson(text));
+      if (!report) {
+        return fail('invalid_model_output', 'The model returned an unusable report.', 502);
+      }
+      return json({ report, model }, 200);
+    }
 
     const lesson = validateLesson(extractJson(text));
     if (!lesson) {
@@ -129,17 +146,22 @@ Deno.serve(async (req) => {
 // ---------------------------------------------------------------------------
 
 interface ContentRequest {
+  kind: 'lesson' | 'report';
   level: string;
+  targetLevel?: string;
   skill: string | null;
   weakSkills: string[];
   strengths: string[];
   goals: string[];
   language: string;
+  facts?: unknown;
 }
 
 function validateRequest(body: unknown): ContentRequest | { error: string } {
   if (typeof body !== 'object' || body === null) return { error: 'Body must be an object.' };
   const raw = body as Record<string, unknown>;
+
+  const kind = raw.kind === 'report' ? 'report' : 'lesson';
 
   const level = String(raw.level ?? '').toUpperCase();
   if (!LEVELS.includes(level)) return { error: 'level must be one of A1..C2.' };
@@ -153,12 +175,15 @@ function validateRequest(body: unknown): ContentRequest | { error: string } {
       : [];
 
   return {
+    kind,
     level,
+    targetLevel: typeof raw.targetLevel === 'string' ? raw.targetLevel : undefined,
     skill,
     weakSkills: list(raw.weakSkills, 4),
     strengths: list(raw.strengths, 3),
     goals: list(raw.goals, 5),
     language: raw.language === 'en' ? 'en' : 'ar',
+    facts: raw.facts,
   };
 }
 
@@ -218,8 +243,85 @@ function buildSystemPrompt(input: ContentRequest): string {
 }
 
 // ---------------------------------------------------------------------------
+// Weekly report prompt
+// ---------------------------------------------------------------------------
+
+/**
+ * The report prompt is deliberately constrained: the device already computed
+ * every number, and the model may only narrate them. It must not invent
+ * facts, and it must not be motivational fluff.
+ */
+function buildReportPrompt(input: ContentRequest): string {
+  const facts = typeof input.facts === 'object' && input.facts !== null ? input.facts : {};
+
+  const lines: string[] = [];
+
+  lines.push(
+    'You write a short weekly learning report for one learner, inside a language-learning app. The numbers below are already computed and are correct. You may only narrate them — never invent a statistic.',
+  );
+
+  lines.push(
+    `## Learner\nCEFR ${input.level}${
+      input.targetLevel ? `, working toward ${input.targetLevel}` : ''
+    }.${input.goals.length > 0 ? ` Goals: ${input.goals.join('; ')}.` : ''}`,
+  );
+
+  lines.push(`## Measured facts (JSON)\n${JSON.stringify(facts)}`);
+
+  lines.push(
+    '## Rules\n- Be specific: name the numbers that matter (lessons, quests, XP, accuracy, active days, chat turns, words mastered).\n- Never invent a metric that is not in the facts, and never claim a skill improved unless the skill scores show it.\n- One honest headline (max 120 chars) that a tutor would actually say.\n- "wins": up to 4 short, concrete achievements. If the week was weak, this may be empty — do not manufacture praise.\n- "focus": up to 3 concrete next actions, tied to the weakest skill and the learner\'s goals.\n- "suggestion": one sentence of guidance for the coming week.\n- If the facts show almost no activity, say so plainly and give one small action to restart.',
+  );
+
+  if (input.language === 'ar') {
+    lines.push(
+      '## Language\nWrite in English. If the learner prefers Arabic, you may add one short Arabic line in the headline only — never a paragraph of translation.',
+    );
+  }
+
+  lines.push(
+    '## Output format\nReturn ONLY a JSON object:\n{"headline": "string", "wins": ["string"], "focus": ["string"], "suggestion": "string"}',
+  );
+
+  return lines.join('\n\n');
+}
+
+// ---------------------------------------------------------------------------
 // Output validation
 // ---------------------------------------------------------------------------
+
+interface GeneratedReport {
+  headline: string;
+  wins: string[];
+  focus: string[];
+  suggestion: string;
+}
+
+function validateReport(raw: unknown): GeneratedReport | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const data = raw as Record<string, unknown>;
+
+  const headline = typeof data.headline === 'string' ? data.headline.trim() : '';
+  if (!headline || headline.length > 300) return null;
+
+  const list = (value: unknown, max: number): string[] =>
+    Array.isArray(value)
+      ? value
+          .filter((v): v is string => typeof v === 'string')
+          .map((v) => v.trim().slice(0, 240))
+          .filter(Boolean)
+          .slice(0, max)
+      : [];
+
+  const suggestion =
+    typeof data.suggestion === 'string' ? data.suggestion.trim().slice(0, 400) : '';
+
+  return {
+    headline,
+    wins: list(data.wins, 4),
+    focus: list(data.focus, 3),
+    suggestion,
+  };
+}
 
 interface GeneratedLesson {
   title: string;

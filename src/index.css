@@ -6,22 +6,53 @@
   * {
     -webkit-tap-highlight-color: transparent;
   }
+
   html {
     scroll-behavior: smooth;
   }
+
   body {
     @apply bg-ink-950 text-gray-200 font-body antialiased;
     overscroll-behavior: none;
     /* Prevents elastic overscroll revealing a light background on iOS. */
     background-color: #070710;
+    /* The app shell sits on a deep, slightly blue-tinted base so translucent
+       panels have something rich to refract. */
+    background-image:
+      radial-gradient(1200px 700px at 12% -8%, rgba(239, 68, 68, 0.10), transparent 60%),
+      radial-gradient(1000px 640px at 92% 4%, rgba(59, 130, 246, 0.10), transparent 62%),
+      radial-gradient(900px 600px at 50% 108%, rgba(168, 85, 247, 0.07), transparent 60%);
+    background-attachment: fixed;
   }
+
   ::selection {
     @apply bg-primary-500/30 text-white;
   }
+
   /* Visible, consistent keyboard focus across every interactive element. */
   :focus-visible {
     @apply outline-none ring-2 ring-primary-500/60 ring-offset-2 ring-offset-ink-950;
   }
+
+  /* Slim, unobtrusive scrollbars that match the glass surfaces. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/20;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -29,7 +60,155 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------------
+     Glass surfaces
+     A premium glass panel is not a translucent rectangle: it is a stack of
+     layers — a tinted gradient body, a blurred backdrop, a hairline gradient
+     border, an inner specular highlight along the top edge, and a soft
+     coloured shadow underneath. The ::before / ::after pseudo elements add
+     the highlight and the sheen without extra DOM.
+     --------------------------------------------------------------------- */
+  .glass-panel {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(
+        155deg,
+        rgba(255, 255, 255, 0.075) 0%,
+        rgba(255, 255, 255, 0.022) 38%,
+        rgba(255, 255, 255, 0.045) 100%
+      ),
+      rgba(9, 9, 20, 0.62);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+      0 24px 48px -28px rgba(0, 0, 0, 0.85);
+  }
+
+  /* A gradient hairline border: the gradient is painted on the border box and
+     the panel colour is painted on the padding box, so only the 1px edge
+     shows the gradient. */
+  .glass-hairline {
+    position: relative;
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025) 40%),
+      rgba(9, 9, 20, 0.6);
+    border: 1px solid transparent;
+    background-clip: padding-box, border-box;
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(24px) saturate(160%);
+  }
+  .glass-hairline::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      140deg,
+      rgba(255, 255, 255, 0.35),
+      rgba(255, 255, 255, 0.04) 35%,
+      rgba(120, 160, 255, 0.16) 70%,
+      rgba(255, 255, 255, 0.05)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Specular sweep — a soft highlight travelling across the top edge. */
+  .sheen::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -60%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      100deg,
+      transparent,
+      rgba(255, 255, 255, 0.10),
+      transparent
+    );
+    transform: skewX(-18deg);
+    pointer-events: none;
+    opacity: 0;
+  }
+  .sheen:hover::after {
+    animation: sheen 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Film grain — the texture that separates "glass" from "flat translucent". */
+  .noise-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Ambient mesh of slowly drifting colour fields. Transform-based so it
+     stays on the compositor. */
+  .mesh-field {
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .mesh-field > span {
+    position: absolute;
+    display: block;
+    border-radius: 9999px;
+    filter: blur(70px);
+    will-change: transform;
+  }
+  .mesh-field > span:nth-child(1) {
+    width: 22rem;
+    height: 22rem;
+    top: 2%;
+    left: -4%;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.30), transparent 70%);
+    animation: drift-a 24s ease-in-out infinite alternate;
+  }
+  .mesh-field > span:nth-child(2) {
+    width: 20rem;
+    height: 20rem;
+    top: 18%;
+    right: -6%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.26), transparent 70%);
+    animation: drift-b 28s ease-in-out infinite alternate;
+  }
+  .mesh-field > span:nth-child(3) {
+    width: 18rem;
+    height: 18rem;
+    bottom: -4%;
+    left: 24%;
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.18), transparent 70%);
+    animation: drift-c 32s ease-in-out infinite alternate;
+  }
+
+  /* Text that catches the light. */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-white via-gray-100 to-gray-400;
+  }
+  .text-gradient-brand {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-300 via-white to-accent-400;
   }
 }
 
@@ -39,9 +218,6 @@
   }
   .glass-strong {
     @apply bg-white/[0.05] backdrop-blur-2xl border border-white/[0.08];
-  }
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-white via-gray-200 to-gray-400;
   }
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -64,7 +240,7 @@
     @apply bg-white/10 rounded-full;
   }
   .shimmer-bg {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
     background-size: 200% 100%;
   }
   .safe-area-bottom {
@@ -103,20 +279,87 @@
     left: -6rem;
     background: radial-gradient(circle, rgba(59, 130, 246, 0.12), transparent 70%);
   }
+  /* Gradient border ring for hero panels. */
+  .ring-brand {
+    position: relative;
+  }
+  .ring-brand::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      140deg,
+      rgba(239, 68, 68, 0.55),
+      rgba(255, 255, 255, 0.06) 40%,
+      rgba(59, 130, 246, 0.4)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+@keyframes sheen {
+  0% {
+    left: -60%;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    left: 120%;
+    opacity: 0;
+  }
+}
+
+@keyframes drift-a {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(6rem, 4rem, 0) scale(1.15);
+  }
+}
+
+@keyframes drift-b {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  100% {
+    transform: translate3d(-5rem, 6rem, 0) scale(1);
+  }
+}
+
+@keyframes drift-c {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  100% {
+    transform: translate3d(3rem, -5rem, 0) scale(1.2);
+  }
 }
 
 /* Custom range slider */
-input[type="range"] {
+input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
 }
-input[type="range"]::-webkit-slider-runnable-track {
+input[type='range']::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 9999px;
 }
-input[type="range"]::-webkit-slider-thumb {
+input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   margin-top: -6px;
@@ -126,7 +369,7 @@ input[type="range"]::-webkit-slider-thumb {
   @apply bg-primary-500;
   box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
 }
-input[type="range"]::-moz-range-thumb {
+input[type='range']::-moz-range-thumb {
   height: 16px;
   width: 16px;
   border: none;

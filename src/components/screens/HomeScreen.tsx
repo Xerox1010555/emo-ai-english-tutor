@@ -24,6 +24,7 @@ import { buildRoadmap, currentStage } from '@/lib/learning/roadmap';
 import { todayKey } from '@/lib/learning/profile';
 import { useDailyQuests } from '@/lib/learning/useDailyQuests';
 import { loadDueVocab } from '@/lib/learning/vocab';
+import { useI18n } from '@/lib/i18n';
 import type { ConversationMessage, DailyLesson } from '@/lib/types';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -41,6 +42,8 @@ export function Home({ onNavigate }: HomeProps) {
   const { profile, user, refreshProfile } = useAuth();
   const { profileSnapshot, setFocus } = useTutor();
   const { updateContext } = useNotifications();
+  const { t } = useI18n();
+  const { language: uiLanguage } = useI18n();
   const [todayLesson, setTodayLesson] = useState<DailyLesson | null>(null);
   const [lessonError, setLessonError] = useState(false);
   const [vocabDue, setVocabDue] = useState(0);
@@ -161,14 +164,18 @@ export function Home({ onNavigate }: HomeProps) {
   return (
     <div className="px-5 py-6 space-y-6">
       <PageHeader
-        title={greetingLine()}
-        subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        title={greetingLine(t)}
+        subtitle={new Date().toLocaleDateString(
+          uiLanguage === 'ar' ? 'ar-EG' : 'en-US',
+          { weekday: 'long', month: 'long', day: 'numeric' },
+        )}
       />
 
       {/* Hero: today + streak + stage */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: EASE }}>
-        <Card className="relative overflow-hidden">
-          <div className="aurora" />
+        <Card hairline className="relative overflow-hidden shadow-glass-lg">
+          <div className="aurora opacity-80" />
+          <div className="noise-overlay" />
           <div className="relative flex items-center gap-5">
             <ProgressRing
               progress={dayProgress}
@@ -177,6 +184,7 @@ export function Home({ onNavigate }: HomeProps) {
               label={`${dayProgress}%`}
               sublabel="Today"
               gradientId="homeRing"
+              countUp
             />
             <div className="flex-1 min-w-0 space-y-2.5">
               <div className="flex items-center gap-2">
@@ -213,25 +221,27 @@ export function Home({ onNavigate }: HomeProps) {
         transition={{ duration: 0.34, ease: EASE, delay: 0.05 }}
       >
         <SectionHeader
-          title="Daily quests"
+          title={t('home.quests.title')}
           action={
             <button
               onClick={() => onNavigate('quests')}
               className="text-[11px] text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1"
             >
-              All quests <ArrowRight className="w-3 h-3" />
+              {t('home.quests.all')} <ArrowRight className="w-3 h-3 rtl:rotate-180" />
             </button>
           }
         />
-        <Card hover onClick={() => onNavigate('quests')} className="space-y-3">
+        <Card hover onClick={() => onNavigate('quests')} className="space-y-3" hairline>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <Target className="w-4 h-4 text-primary-400 flex-shrink-0" />
+              <div className="w-7 h-7 rounded-lg bg-primary-500/12 border border-primary-500/20 flex items-center justify-center flex-shrink-0">
+                <Target className="w-3.5 h-3.5 text-primary-300" />
+              </div>
               <span className="text-sm font-semibold text-white">
                 {quests.completedCount}/{quests.quests.length} complete
               </span>
             </div>
-            <span className="text-xs font-bold text-primary-400 tabular-nums flex-shrink-0">
+            <span className="text-xs font-bold text-primary-300 tabular-nums flex-shrink-0">
               {quests.earnedXp} XP
             </span>
           </div>
@@ -260,7 +270,7 @@ export function Home({ onNavigate }: HomeProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.34, ease: EASE, delay: 0.1 }}
       >
-        <SectionHeader title="Today's lesson" />
+        <SectionHeader title={t('home.lesson.title')} />
         {todayLesson ? (
           <Card
             hover
@@ -320,7 +330,7 @@ export function Home({ onNavigate }: HomeProps) {
           transition={{ duration: 0.34, ease: EASE, delay: 0.15 }}
         >
           <SectionHeader
-            title="Where the tutor is focusing"
+            title={t('home.focus.title')}
             action={<Sparkles className="w-3.5 h-3.5 text-gray-600" />}
           />
           <Card className="space-y-3.5">
@@ -342,14 +352,14 @@ export function Home({ onNavigate }: HomeProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.34, ease: EASE, delay: 0.2 }}
       >
-        <SectionHeader title="Quick actions" />
+        <SectionHeader title={t('home.actions.title')} />
         <div className="grid grid-cols-2 gap-3">
           <Card hover onClick={() => onNavigate('chat')} className="flex flex-col gap-2">
             <div className="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
               <MessageCircle className="w-[18px] h-[18px] text-accent-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Chat with Emo</p>
+              <p className="text-sm font-semibold text-white">{t('home.action.chat')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">
                 {lastMessage ? 'Continue conversation' : 'Start practicing'}
               </p>
@@ -360,7 +370,7 @@ export function Home({ onNavigate }: HomeProps) {
               <GraduationCap className="w-[18px] h-[18px] text-primary-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Roadmap</p>
+              <p className="text-sm font-semibold text-white">{t('home.action.roadmap')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">Your journey stage</p>
             </div>
           </Card>
@@ -369,7 +379,7 @@ export function Home({ onNavigate }: HomeProps) {
               <TrendingUp className="w-[18px] h-[18px] text-success-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Skills</p>
+              <p className="text-sm font-semibold text-white">{t('home.action.skills')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">Per-skill breakdown</p>
             </div>
           </Card>
@@ -378,7 +388,7 @@ export function Home({ onNavigate }: HomeProps) {
               <Calendar className="w-[18px] h-[18px] text-warning-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Schedule</p>
+              <p className="text-sm font-semibold text-white">{t('home.action.schedule')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">Add a reminder</p>
             </div>
           </Card>
@@ -387,7 +397,7 @@ export function Home({ onNavigate }: HomeProps) {
               <Brain className="w-[18px] h-[18px] text-accent-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Test yourself</p>
+              <p className="text-sm font-semibold text-white">{t('home.action.quiz')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">5 quick questions</p>
             </div>
           </Card>
@@ -396,10 +406,19 @@ export function Home({ onNavigate }: HomeProps) {
               <BookMarked className="w-[18px] h-[18px] text-primary-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Vocabulary</p>
+              <p className="text-sm font-semibold text-white">{t('home.action.vocabulary')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">
                 {vocabDue > 0 ? `${vocabDue} due for review` : 'Your word deck'}
               </p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('report')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-warning-500/10 flex items-center justify-center">
+              <TrendingUp className="w-[18px] h-[18px] text-warning-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">{t('home.action.report')}</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">Your week in numbers</p>
             </div>
           </Card>
         </div>
@@ -412,7 +431,7 @@ export function Home({ onNavigate }: HomeProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.34, ease: EASE, delay: 0.25 }}
         >
-          <SectionHeader title="Recent chat" />
+          <SectionHeader title={t('home.recent.title')} />
           <Card hover onClick={() => onNavigate('chat')}>
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0">
@@ -457,8 +476,13 @@ export function Home({ onNavigate }: HomeProps) {
   );
 }
 
-function greetingLine(): string {
+function greetingLine(t: (key: string) => string): string {
   const hour = new Date().getHours();
-  const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  return `${part}, ready to learn?`;
+  const part =
+    hour < 12
+      ? t('home.greeting.morning')
+      : hour < 18
+        ? t('home.greeting.afternoon')
+        : t('home.greeting.evening');
+  return `${part}, ${t('home.title')}`;
 }

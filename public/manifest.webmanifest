@@ -1,0 +1,46 @@
+{
+  "name": "Emo — AI English Tutor",
+  "short_name": "Emo",
+  "description": "A personal AI English tutor that adapts to your level, your goals, and your mistakes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070710",
+  "theme_color": "#070710",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Chat with Emo",
+      "short_name": "Chat",
+      "url": "/?tab=chat"
+    },
+    {
+      "name": "Today's quests",
+      "short_name": "Quests",
+      "url": "/?tab=quests"
+    }
+  ]
+}

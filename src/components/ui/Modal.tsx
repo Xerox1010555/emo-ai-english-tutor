@@ -31,7 +31,7 @@ export function Modal({ open, onClose, title, children, className = '' }: ModalP
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-ink-950/70 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -42,15 +42,15 @@ export function Modal({ open, onClose, title, children, className = '' }: ModalP
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={`relative glass-strong rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin shadow-lift ${className}`}
+            className={`relative glass-panel rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin shadow-glass-lg ${className}`}
             initial={{ opacity: 0, y: 32, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
             transition={{ duration: 0.26, ease: EASE }}
           >
             {title && (
-              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] sticky top-0 glass-strong z-10 rounded-t-3xl">
-                <h2 className="text-lg font-bold text-white">{title}</h2>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.07] sticky top-0 glass-panel z-10 rounded-t-3xl">
+                <h2 className="text-lg font-bold text-white font-sans">{title}</h2>
                 <button
                   onClick={onClose}
                   aria-label="Close"

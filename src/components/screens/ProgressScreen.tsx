@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
+import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import { CEFR_ORDER, levelIndex } from '@/lib/learning/constants';
 import { estimateLevelFromProgress } from '@/lib/learning/profile';
@@ -36,6 +37,7 @@ const allSkills = ['Grammar', 'Vocabulary', 'Listening', 'Speaking', 'Writing', 
 export function ProgressScreen({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
   const { profile, user, refreshProfile } = useAuth();
   const { profileSnapshot, profileLoading, refreshSnapshot } = useTutor();
+  const { t } = useI18n();
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [lessons, setLessons] = useState<DailyLesson[]>([]);
   const [vocab, setVocab] = useState<VocabItem[]>([]);
@@ -159,7 +161,7 @@ export function ProgressScreen({ onNavigate }: { onNavigate?: (tab: TabId) => vo
 
   return (
     <div className="px-5 py-6 space-y-6">
-      <PageHeader title="Progress" subtitle="Your learning journey at a glance" />
+      <PageHeader title={t('progress.title')} subtitle={t('progress.subtitle')} />
 
       {/* Level */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: EASE }}>

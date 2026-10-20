@@ -14,17 +14,22 @@ interface ButtonProps
 }
 
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
+  // A gradient body with a coloured ambient shadow reads as a real control,
+  // not a flat rectangle.
   primary:
-    'bg-primary-500 hover:bg-primary-600 text-white shadow-lg shadow-primary-500/20 hover:shadow-primary-500/30',
-  secondary: 'glass-strong hover:bg-white/[0.08] text-gray-200',
-  ghost: 'hover:bg-white/[0.05] text-gray-300',
-  danger: 'bg-red-900/40 hover:bg-red-900/60 text-red-300 border border-red-800/40',
+    'text-white bg-gradient-to-b from-primary-400 to-primary-600 shadow-glow-primary border border-primary-300/25 hover:from-primary-300 hover:to-primary-500',
+  secondary:
+    'glass-panel text-gray-100 border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.06]',
+  ghost:
+    'text-gray-300 hover:text-white hover:bg-white/[0.06] border border-transparent',
+  danger:
+    'text-red-200 bg-red-950/40 hover:bg-red-900/50 border border-red-800/40 backdrop-blur-md',
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps['size']>, string> = {
-  sm: 'px-3 py-1.5 text-sm rounded-lg',
+  sm: 'px-3.5 py-1.5 text-sm rounded-lg',
   md: 'px-5 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3.5 text-base rounded-xl',
+  lg: 'px-6 py-3.5 text-base rounded-2xl',
 };
 
 export function Button({
@@ -41,10 +46,10 @@ export function Button({
 
   return (
     <motion.button
-      whileHover={isDisabled ? undefined : { scale: 1.02 }}
-      whileTap={isDisabled ? undefined : { scale: 0.96 }}
-      transition={{ type: 'spring', stiffness: 480, damping: 30 }}
-      className={`inline-flex items-center justify-center gap-2 font-semibold transition-colors duration-200 disabled:opacity-40 disabled:pointer-events-none ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
+      whileHover={isDisabled ? undefined : { scale: 1.02, y: -1 }}
+      whileTap={isDisabled ? undefined : { scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 460, damping: 28 }}
+      className={`relative inline-flex items-center justify-center gap-2 font-semibold transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none select-none ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
       disabled={isDisabled}
       {...props}
     >

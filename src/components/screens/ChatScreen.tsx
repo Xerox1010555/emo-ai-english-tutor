@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Send, Mic, Volume2, Trash2, Sparkles, Cpu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
+import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import { askTutor, toTutorTurns } from '@/lib/ai/client';
 import type { AiCorrection } from '@/lib/ai/types';
@@ -53,6 +54,7 @@ const fallbackNotice: Record<string, string> = {
 export function ChatScreen() {
   const { profile, user } = useAuth();
   const { mode, profileSnapshot, focus, refreshSnapshot } = useTutor();
+  const { t } = useI18n();
   const [messages, setMessages] = useState<RenderMessage[]>([]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
@@ -323,7 +325,7 @@ export function ChatScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="glass rounded-2xl rounded-bl-md px-4 py-3">
+            <div className="glass rounded-2xl rounded-bl-md px-4 py-3 shadow-glass">
               <TypingDots />
             </div>
           </motion.div>
@@ -369,7 +371,7 @@ export function ChatScreen() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && input.trim() && !busyRef.current) void sendMessage(input);
             }}
-            placeholder={recording ? 'Speak now...' : 'Type in English...'}
+            placeholder={recording ? t('chat.speak') : t('chat.placeholder')}
             disabled={recording || typing}
             className="flex-1 px-4 py-3 bg-black/30 border border-white/[0.06] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/40 transition-colors disabled:opacity-50"
           />
@@ -440,8 +442,10 @@ function MessageBubble({
         )}
 
         <div
-          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-            isUser ? 'bg-primary-500 text-white rounded-br-md' : 'glass text-gray-200 rounded-bl-md'
+          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap shadow-glass ${
+            isUser
+              ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-br-md border border-primary-300/20'
+              : 'glass-panel text-gray-100 rounded-bl-md'
           }`}
         >
           {message.content}
@@ -457,7 +461,7 @@ function MessageBubble({
             {corrections.map((c, i) => (
               <div
                 key={i}
-                className="text-xs text-warning-400 bg-warning-500/5 border border-warning-500/10 rounded-lg px-3 py-2 max-w-full"
+                className="text-xs text-warning-300 bg-warning-500/[0.07] border border-warning-500/20 rounded-xl px-3 py-2 max-w-full backdrop-blur-md"
               >
                 <div className="flex items-start gap-1.5">
                   <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
