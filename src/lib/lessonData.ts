@@ -1,4 +1,5 @@
 import type { CEFRLevel, Skill } from './types';
+import { levelIndex } from './learning/constants';
 
 export interface LessonContent {
   title: string;
@@ -335,12 +336,54 @@ Practice: Read an opinion article. Identify:
   },
 ];
 
-export function getLessonForLevel(level: CEFRLevel, skill?: Skill): LessonContent {
+/**
+ * Picks the lesson for a level.
+ *
+ * Deterministic: the same learner on the same day always gets the same lesson
+ * (seeded by the local date), so "today's lesson" does not change on reload.
+ * The fallback never crosses levels arbitrarily — it takes the NEAREST CEFR
+ * level that actually has content for the requested skill.
+ */
+export function getLessonForLevel(
+  level: CEFRLevel,
+  skill?: Skill,
+  seed: string = '',
+): LessonContent {
   const matching = lessonBank.filter(
     (l) => l.level === level && (!skill || l.skill === skill)
   );
-  if (matching.length > 0) return matching[Math.floor(Math.random() * matching.length)];
-  // Find closest level
-  const all = skill ? lessonBank.filter((l) => l.skill === skill) : lessonBank;
-  return all[Math.floor(Math.random() * all.length)];
+  if (matching.length > 0) return pickBySeed(matching, seed);
+
+  const candidates = skill ? lessonBank.filter((l) => l.skill === skill) : lessonBank;
+  if (candidates.length === 0) return lessonBank[0];
+
+  const targetIdx = levelIndex(level);
+  const nearestLevel = candidates.reduce(
+    (best, l) =>
+      Math.abs(levelIndex(l.level) - targetIdx) < Math.abs(levelIndex(best.level) - targetIdx)
+        ? l
+        : best,
+  ).level;
+
+  return pickBySeed(
+    candidates.filter((l) => l.level === nearestLevel),
+    seed,
+  );
+}
+
+/** Stable pick from a list, seeded by a string. */
+function pickBySeed(items: LessonContent[], seed: string): LessonContent {
+  if (items.length === 1) return items[0];
+  let hash = 2166136261;
+  const value = seed || 'default';
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return items[Math.abs(hash) % items.length];
+}
+
+/** All lessons that exist for a level, used by the AI-lesson fallback picker. */
+export function lessonsForLevel(level: CEFRLevel, skill?: Skill): LessonContent[] {
+  return lessonBank.filter((l) => l.level === level && (!skill || l.skill === skill));
 }

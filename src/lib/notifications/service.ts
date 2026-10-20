@@ -117,7 +117,12 @@ class ReminderService {
 
     this.settings = settings;
     this.context = context;
-    if (changed) this.reschedule();
+
+    // A new configuration gets one immediate evaluation, so turning the
+    // reminder on during the target hour does not wait for the next tick.
+    // NOTE: the state must stay set — clearing it here (as this used to do)
+    // meant checkNow() always bailed out and no reminder ever fired.
+    if (changed) this.checkNow();
   }
 
   /** Fires immediately if a reminder is due right now. */
@@ -154,12 +159,9 @@ class ReminderService {
     return now.getTime() >= due.getTime() && now.getTime() - due.getTime() < 60 * 60 * 1000;
   }
 
-  private reschedule(): void {
-    this.destroy();
-    // A fresh configuration gets one immediate evaluation, so switching the
-    // reminder on during the target hour does not wait for the next tick.
-    this.checkNow();
-  }
+  // NOTE: there is deliberately no reschedule() that clears the state before
+  // evaluating. The old implementation called destroy() first, which nulled
+  // `settings`, so checkNow() always bailed out and no reminder ever fired.
 
   private fire(now: Date): void {
     const settings = this.settings;

@@ -14,9 +14,13 @@
  *   GROQ_MODEL              default: llama-3.3-70b-versatile
  *   LLM_TEMPERATURE         default: 0.7
  *   LLM_MAX_TOKENS          default: 500
+ *   TUTOR_RATE_LIMIT         default: 40 (calls per user per hour)
  *
  * Security model:
- *   - Requires a valid Supabase JWT; unauthenticated calls get 401.
+ *   - Requires a VALID Supabase JWT. A token is verified against Supabase Auth
+ *     before any model call, so a made-up bearer string cannot spend the
+ *     owner's credit.
+ *   - Per-user rate limit on top of that.
  *   - Accepts ONLY a messages array and a mode. It performs no database writes,
  *     reads the user's learning data, or touches application state. Those stay
  *     in the authenticated client, which owns the RLS-protected database.
@@ -24,19 +28,22 @@
  *     rejected if it does not conform. Nothing model-generated is executed.
  */
 
-const PROVIDER_DEFAULT_MODEL: Record<Provider, string> = {
-  openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash',
-  groq: 'llama-3.3-70b-versatile',
-};
-
-type Provider = 'openai' | 'gemini' | 'groq';
+import { requireUser } from '../_shared/auth.ts';
+import {
+  callModel,
+  createRateLimiter,
+  extractJson,
+  resolveProvider,
+  type ChatMessage,
+} from '../_shared/llm.ts';
 
 const MAX_MESSAGES = 24;
 const MAX_MESSAGE_CHARS = 6000;
 const MAX_USER_CHARS = 8000;
 const REQUEST_TIMEOUT_MS = 25_000;
 const ALLOWED_MODES = new Set(['friendly', 'coach', 'strict']);
+const RATE_LIMIT = Number(Deno.env.get('TUTOR_RATE_LIMIT') ?? '40');
+const RATE_WINDOW_MS = 60 * 60 * 1000;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -44,15 +51,12 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
 interface ErrorBody {
   error: string;
   code: string;
 }
+
+const rateLimiter = createRateLimiter();
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -74,9 +78,25 @@ Deno.serve(async (req) => {
   }
 
   // --- Auth gate -----------------------------------------------------------
-  const authHeader = req.headers.get('Authorization') ?? '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return fail('unauthorized', 'Missing bearer token.', 401);
+  // A bearer token is verified, not just parsed.
+  const user = await requireUser(req);
+  if (!user) {
+    return fail('unauthorized', 'Invalid or expired session.', 401);
+  }
+
+  // --- Rate limit ----------------------------------------------------------
+  const limit = rateLimiter.check(`tutor:${user.id}`, RATE_LIMIT, RATE_WINDOW_MS);
+  if (!limit.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: `Too many requests. Try again in ${Math.ceil(limit.retryAfter / 60)} minute(s).`,
+        code: 'rate-limit',
+      } satisfies ErrorBody),
+      {
+        status: 429,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Retry-After': String(limit.retryAfter) },
+      },
+    );
   }
 
   const provider = resolveProvider();
@@ -253,176 +273,4 @@ function validateModelOutput(raw: unknown): ValidatedOutput | null {
     targetSkill: SKILLS.includes(String(data.targetSkill)) ? String(data.targetSkill) : 'Grammar',
     languageMix: LANGUAGE_MIXES.includes(String(data.languageMix)) ? String(data.languageMix) : 'en',
   };
-}
-
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch { /* fall through */ }
-
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence?.[1]) {
-    try {
-      return JSON.parse(fence[1].trim());
-    } catch { /* fall through */ }
-  }
-
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start !== -1 && end > start) {
-    try {
-      return JSON.parse(trimmed.slice(start, end + 1));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// Providers
-// ---------------------------------------------------------------------------
-
-function resolveProvider(): Provider | null {
-  const explicit = Deno.env.get('LLM_PROVIDER')?.toLowerCase();
-  if (explicit === 'openai' || explicit === 'gemini' || explicit === 'groq') {
-    return hasKey(explicit) ? explicit : null;
-  }
-  for (const candidate of ['openai', 'gemini', 'groq'] as Provider[]) {
-    if (hasKey(candidate)) return candidate;
-  }
-  return null;
-}
-
-function hasKey(provider: Provider): boolean {
-  const env = Deno.env.get(
-    provider === 'openai' ? 'OPENAI_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : 'GROQ_API_KEY',
-  );
-  return Boolean(env && env.trim().length > 0);
-}
-
-function modelFor(provider: Provider): string {
-  const key = provider === 'openai'
-    ? 'OPENAI_MODEL'
-    : provider === 'gemini'
-      ? 'GEMINI_MODEL'
-      : 'GROQ_MODEL';
-  return Deno.env.get(key)?.trim() || PROVIDER_DEFAULT_MODEL[provider];
-}
-
-async function callModel(
-  provider: Provider,
-  messages: ChatMessage[],
-  options: { temperature: number; maxTokens: number; signal: AbortSignal },
-): Promise<{ text: string; model: string }> {
-  switch (provider) {
-    case 'openai':
-      return callOpenAi(messages, options);
-    case 'groq':
-      return callOpenAiCompatible(
-        'https://api.groq.com/openai/v1/chat/completions',
-        Deno.env.get('GROQ_API_KEY')!.trim(),
-        messages,
-        options,
-      );
-    case 'gemini':
-      return callGemini(messages, options);
-  }
-}
-
-async function callOpenAi(
-  messages: ChatMessage[],
-  options: { temperature: number; maxTokens: number; signal: AbortSignal },
-): Promise<{ text: string; model: string }> {
-  return callOpenAiCompatible(
-    'https://api.openai.com/v1/chat/completions',
-    Deno.env.get('OPENAI_API_KEY')!.trim(),
-    messages,
-    options,
-  );
-}
-
-/** OpenAI and Groq share the same chat-completions shape. */
-async function callOpenAiCompatible(
-  url: string,
-  apiKey: string,
-  messages: ChatMessage[],
-  options: { temperature: number; maxTokens: number; signal: AbortSignal },
-): Promise<{ text: string; model: string }> {
-  const model = modelFor(url.includes('groq') ? 'groq' : 'openai');
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: options.temperature,
-      max_tokens: options.maxTokens,
-      response_format: { type: 'json_object' },
-    }),
-    signal: options.signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  }
-
-  const json = await response.json();
-  const text = json?.choices?.[0]?.message?.content;
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('Empty completion.');
-  }
-  return { text, model };
-}
-
-async function callGemini(
-  messages: ChatMessage[],
-  options: { temperature: number; maxTokens: number; signal: AbortSignal },
-): Promise<{ text: string; model: string }> {
-  const model = modelFor('gemini');
-  const apiKey = Deno.env.get('GEMINI_API_KEY')!.trim();
-
-  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-  const contents = messages
-    .filter((m) => m.role !== 'system')
-    .map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-        contents,
-        generationConfig: {
-          temperature: options.temperature,
-          maxOutputTokens: options.maxTokens,
-          responseMimeType: 'application/json',
-        },
-      }),
-      signal: options.signal,
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  }
-
-  const json = await response.json();
-  const text = json?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('');
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('Empty completion.');
-  }
-  return { text, model };
 }

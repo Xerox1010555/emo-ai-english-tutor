@@ -111,7 +111,7 @@ export function QuestsScreen({ onNavigate }: QuestsScreenProps) {
             <p className="text-[11px] text-gray-500 leading-relaxed">
               Targeting <span className="text-primary-400 font-medium">{uniqueTargeted.join(', ')}</span>
               {profileSnapshot.weaknesses.length > 0 &&
-                ` â€” your weakest ${profileSnapshot.weaknesses.length === 1 ? 'area' : 'areas'} right now.`}
+                ` — your weakest ${profileSnapshot.weaknesses.length === 1 ? 'area' : 'areas'} right now.`}
             </p>
           )}
         </Card>
@@ -173,7 +173,7 @@ export function QuestsScreen({ onNavigate }: QuestsScreenProps) {
 
       <CelebrationOverlay
         open={celebrate}
-        emoji="ðŸ†"
+        emoji="🏆"
         title="Every quest cleared"
         subtitle={`${earnedXp} XP earned. That's the whole day done.`}
         onDone={() => setCelebrate(false)}
@@ -264,9 +264,9 @@ function QuestDetail({
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-white">{quest.title}</p>
-              <p className="text-[11px] text-gray-500">
-                {quest.skill} Â· +{quest.xpReward} XP
-              </p>
+      <span className="text-[11px] text-gray-500">
+        {quest.skill} · +{quest.xpReward} XP
+      </span>
             </div>
           </div>
           <button

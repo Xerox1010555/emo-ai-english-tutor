@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
+  BookMarked,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -14,7 +15,8 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
 import { supabase } from '@/lib/supabase';
-import { getLessonForLevel } from '@/lib/lessonData';
+import { ensureDailyLesson } from '@/lib/learning/dailyLesson';
+import { saveVocab } from '@/lib/learning/vocab';
 import { buildRoadmap, currentStage, type RoadmapStage } from '@/lib/learning/roadmap';
 import { generatePlan } from '@/lib/planGenerator';
 import { todayKey } from '@/lib/learning/profile';
@@ -42,6 +44,8 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
   const [celebrate, setCelebrate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [weekPlan, setWeekPlan] = useState<LearningPlanWeek[]>([]);
+  const [lessonError, setLessonError] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const stages = useMemo(
     () =>
@@ -63,35 +67,48 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
       return;
     }
     const date = todayKey();
-    const lessonQuery = await supabase
-      .from('daily_lessons')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('date', date)
-      .maybeSingle();
 
-    if (lessonQuery.data) {
-      setTodayLesson(lessonQuery.data as DailyLesson);
-    } else {
-      // No lesson for today yet: create one at the learner's current level.
-      const lesson = getLessonForLevel(profile?.current_level ?? 'A1');
-      const { data: created } = await supabase
-        .from('daily_lessons')
-        .insert({
-          user_id: user.id,
-          date,
-          title: lesson.title,
-          skill: lesson.skill,
-          content: lesson.content,
-          duration_minutes: lesson.durationMinutes,
-        })
-        .select()
-        .single();
-      setTodayLesson(created ? (created as DailyLesson) : null);
-    }
+    // Same shared writer the Home screen uses — one lesson per day, always.
+    const lesson = await ensureDailyLesson({
+      userId: user.id,
+      date,
+      level: profile?.current_level ?? 'A1',
+      skill: profileSnapshot.weaknesses[0] ?? null,
+      weakSkills: profileSnapshot.weaknesses,
+      goals: profile?.learning_goals ?? [],
+      language: profile?.preferred_language === 'en' ? 'en' : 'ar',
+    });
 
-    setWeekPlan(await ensureWeeklyPlan(user.id, profile?.current_level ?? 'A1', profile?.target_level ?? 'B2'));
+    setTodayLesson(lesson);
+    setLessonError(!lesson);
+
+    setWeekPlan(
+      await ensureWeeklyPlan(
+        user.id,
+        profile?.current_level ?? 'A1',
+        profile?.target_level ?? 'B2',
+      ),
+    );
     setLoading(false);
+  }
+
+  /** Copies the lesson's words into the learner's vocabulary deck. */
+  async function saveLessonWords() {
+    if (!user || !todayLesson?.vocab?.length) return;
+    let saved = 0;
+    let duplicates = 0;
+    for (const entry of todayLesson.vocab) {
+      const result = await saveVocab(user.id, { ...entry, source: 'lesson' });
+      if (result === 'saved') saved += 1;
+      else if (result === 'duplicate') duplicates += 1;
+    }
+    setNotice(
+      saved > 0
+        ? `${saved} word${saved > 1 ? 's' : ''} added to your deck.`
+        : duplicates > 0
+          ? 'Those words are already in your deck.'
+          : 'Could not save the words. Try again.',
+    );
   }
 
   // Load today's lesson once on mount.
@@ -102,17 +119,30 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
 
   async function completeLesson() {
     if (!todayLesson || !user) return;
-    await supabase.from('daily_lessons').update({ completed: true }).eq('id', todayLesson.id);
+
+    const { error } = await supabase
+      .from('daily_lessons')
+      .update({ completed: true })
+      .eq('id', todayLesson.id);
+
+    if (error) {
+      setNotice('Could not save the lesson. Try again.');
+      return;
+    }
+
     setTodayLesson({ ...todayLesson, completed: true });
     setLessonOpen(false);
+    await awardLessonXp(user.id, 15);
 
-    const remaining = await supabase
+    // Only celebrate when the read actually succeeded AND every lesson of the
+    // day is done. A failed read used to look like "all lessons complete".
+    const { data: remaining, error: readError } = await supabase
       .from('daily_lessons')
       .select('id, completed')
       .eq('user_id', user.id)
       .eq('date', todayKey());
 
-    if ((remaining.data ?? []).every((l) => l.completed)) {
+    if (!readError && remaining && remaining.length > 0 && remaining.every((l) => l.completed)) {
       setCelebrate(true);
       notifyMilestone('Lesson complete', 'Today\'s lesson is done. Your tutor has been updated.');
     }
@@ -129,6 +159,12 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
           </Button>
         }
       />
+
+      {notice && (
+        <div className="text-xs text-success-400 bg-success-500/5 border border-success-500/15 rounded-xl px-3.5 py-2.5">
+          {notice}
+        </div>
+      )}
 
       {/* Active stage hero */}
       {active && (
@@ -189,6 +225,11 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
                   <span className="text-[11px] text-gray-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" /> {todayLesson.duration_minutes} min
                   </span>
+                  {todayLesson.source === 'ai' && (
+                    <Pill tone="accent">
+                      <Sparkles className="w-2.5 h-2.5" /> Written for you
+                    </Pill>
+                  )}
                 </div>
                 <h3 className="text-base font-bold text-white font-sans">{todayLesson.title}</h3>
               </div>
@@ -214,6 +255,15 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
             </div>
           </Card>
         </div>
+      )}
+
+      {lessonError && !todayLesson && (
+        <Card className="text-center py-6 space-y-2">
+          <p className="text-sm text-gray-400">Could not prepare today&apos;s lesson.</p>
+          <Button size="sm" variant="secondary" onClick={() => void loadToday()}>
+            Try again
+          </Button>
+        </Card>
       )}
 
       {/* Weekly focus (from the generated weekly plan) */}
@@ -281,6 +331,11 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
                   <CheckCircle2 className="w-4 h-4" /> Mark as complete
                 </Button>
               )}
+              {todayLesson.vocab && todayLesson.vocab.length > 0 && (
+                <Button fullWidth variant="secondary" onClick={() => void saveLessonWords()}>
+                  <BookMarked className="w-4 h-4" /> Save these words to my deck
+                </Button>
+              )}
               <Button
                 fullWidth
                 variant="secondary"
@@ -309,8 +364,11 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
 }
 
 /**
- * Reads the generated weekly plan, creating it on first visit. This preserves
- * the original weekly-plan feature, now surfaced inside the roadmap.
+ * Reads the generated weekly plan, creating it on first visit.
+ *
+ * The plan is upserted (migration 3 adds UNIQUE(user_id, week_number)) so two
+ * visits cannot create two week 1s, and the statuses are derived from how much
+ * time has actually passed — the old version left week 1 'active' forever.
  */
 async function ensureWeeklyPlan(
   userId: string,
@@ -323,15 +381,68 @@ async function ensureWeeklyPlan(
     .eq('user_id', userId)
     .order('week_number', { ascending: true });
 
-  if (data && data.length > 0) return data as LearningPlanWeek[];
+  let rows = (data ?? []) as LearningPlanWeek[];
 
-  const plan = generatePlan(currentLevel, targetLevel);
-  const { data: created } = await supabase
-    .from('learning_plan')
-    .insert(plan.map((week) => ({ ...week, user_id: userId })))
-    .select();
+  if (rows.length === 0) {
+    const plan = generatePlan(currentLevel, targetLevel);
+    const payload = plan.map((week) => ({ ...week, user_id: userId }));
+    const { data: created } = await supabase
+      .from('learning_plan')
+      .upsert(payload, { onConflict: 'user_id,week_number' })
+      .select();
+    rows = (created ?? []) as LearningPlanWeek[];
 
-  return (created ?? []) as LearningPlanWeek[];
+    if (rows.length === 0) {
+      // The unique index (migration 3) is missing, so the upsert was rejected.
+      // A plain insert still works.
+      const { data: inserted } = await supabase.from('learning_plan').insert(payload).select();
+      rows = (inserted ?? []) as LearningPlanWeek[];
+    }
+  }
+
+  if (rows.length === 0) return rows;
+
+  // Derive the current week from the plan's own start date.
+  const start = new Date(rows[0].created_at).getTime();
+  const weeksElapsed = Math.floor((Date.now() - start) / (7 * 24 * 60 * 60 * 1000)) + 1;
+
+  const withStatus = rows.map((row) => {
+    const status: LearningPlanWeek['status'] =
+      row.week_number < weeksElapsed
+        ? 'completed'
+        : row.week_number === weeksElapsed
+          ? 'active'
+          : 'upcoming';
+    return { ...row, status };
+  });
+
+  // Keep the stored status honest, but only when it actually differs.
+  const stale = rows.filter((row, i) => row.status !== withStatus[i].status);
+  if (stale.length > 0) {
+    await Promise.all(
+      stale.map((row) =>
+        supabase
+          .from('learning_plan')
+          .update({ status: withStatus.find((w) => w.week_number === row.week_number)!.status })
+          .eq('id', row.id),
+      ),
+    );
+  }
+
+  return withStatus;
+}
+
+/** Adds XP for a completed lesson, atomically when the RPC is available. */
+async function awardLessonXp(userId: string, amount: number): Promise<void> {
+  const { error } = await supabase.rpc('award_xp', { p_amount: amount });
+  if (error) {
+    // Migration 3 not applied — fall back to a plain increment.
+    const { data } = await supabase.from('profiles').select('xp').eq('id', userId).maybeSingle();
+    const current = Number(data?.xp);
+    if (Number.isFinite(current)) {
+      await supabase.from('profiles').update({ xp: current + amount }).eq('id', userId);
+    }
+  }
 }
 
 function StageRow({

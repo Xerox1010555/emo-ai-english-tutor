@@ -17,7 +17,8 @@ export interface DailyQuest {
   /** Free-text answer for written quests; null for tap-to-reveal ones. */
   answer: string | null;
   goal_skill: Skill | null;
-  goalLevel: CEFRLevel;
+  /** The CEFR level the quest was generated for (persisted by migration 3). */
+  goal_level?: CEFRLevel;
   created_at: string;
 }
 
@@ -40,9 +41,11 @@ const TEMPLATES: QuestTemplate[] = [
     skill: 'Grammar',
     minLevelIndex: 0,
     title: 'Fix the mistake',
-    build: (_s, level) => {
+    build: (seed, level) => {
       const pool = GRAMMAR_DRILLS.filter((d) => d.min <= levelIndex(level));
-      const drill = pool[pool.length - 1] ?? GRAMMAR_DRILLS[0];
+      // Pick from the eligible pool by seed — NOT always the last entry, or the
+      // "Fix the mistake" quest would be identical every single day.
+      const drill = pool[seed % pool.length] ?? GRAMMAR_DRILLS[0];
       return {
         prompt: `Correct this sentence:\n\n"${drill.wrong}"`,
         hint: drill.hint,
@@ -294,7 +297,7 @@ export function generateDailyQuests(options: QuestSetOptions): DailyQuest[] {
       completed: false,
       answer: built.answer,
       goal_skill: focusSkills.includes(template.skill) ? template.skill : null,
-      goalLevel: level,
+      goal_level: level,
       created_at: now,
     };
   });

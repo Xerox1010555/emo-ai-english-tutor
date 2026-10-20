@@ -37,12 +37,21 @@ function findMonth(text: string): number | null {
 }
 
 function findDayOfMonth(text: string): number | null {
-  // Match "5", "5th", "the 5th", ordinal numbers
-  const ordinalMatch = text.match(/(\d+)(?:st|nd|rd|th)?/i);
-  if (ordinalMatch) {
-    const num = parseInt(ordinalMatch[1], 10);
+  // Prefer an explicit ordinal ("the 5th", "5th", "on the 3rd").
+  const ordinal = text.match(/\b(\d{1,2})(?:st|nd|rd|th)\b/i);
+  if (ordinal) {
+    const num = parseInt(ordinal[1], 10);
     if (num >= 1 && num <= 31) return num;
   }
+
+  // Otherwise a bare number that is NOT part of a relative duration
+  // ("in 2 days", "2 weeks") and not an obvious time.
+  const bare = text.match(/(?<!in\s)(?<!after\s)\b(\d{1,2})\b(?!\s*(?:day|days|week|weeks|month|months))/i);
+  if (bare) {
+    const num = parseInt(bare[1], 10);
+    if (num >= 1 && num <= 31) return num;
+  }
+
   return null;
 }
 
@@ -57,33 +66,72 @@ function findDayOfWeek(text: string): number | null {
   return null;
 }
 
+/**
+ * Finds an EXPLICIT time.
+ *
+ * A bare number is not a time: "in 2 days" used to parse as 02:00 and
+ * "Oct 5" as 05:00, both with full confidence. Now a time is only recognised
+ * when it carries a real time marker — a colon, am/pm, "at"/"@", "o'clock",
+ * or the Arabic equivalents. Anything else falls back to the 9 AM default with
+ * no extra confidence.
+ */
 function findTime(text: string): { hours: number; minutes: number } | null {
   const lower = text.toLowerCase();
 
-  // "5 pm", "5:30 pm", "17:00", "5 o'clock"
-  const timeMatch = lower.match(/(\d+)(?::(\d+))?\s*(am|pm)?/);
-  if (!timeMatch) return null;
-
-  let hours = parseInt(timeMatch[1], 10);
-  const minutes = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
-  const ampm = timeMatch[3];
-
-  if (ampm === 'pm' && hours < 12) hours += 12;
-  if (ampm === 'am' && hours === 12) hours = 0;
-
-  if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-    return { hours, minutes };
+  // 1. "15:30", "9:05" — a colon is unambiguous.
+  const colon = lower.match(/\b(\d{1,2}):(\d{2})\b/);
+  if (colon) {
+    const hours = parseInt(colon[1], 10);
+    const minutes = parseInt(colon[2], 10);
+    if (hours <= 23 && minutes <= 59) return { hours, minutes };
   }
 
-  // Arabic time words
-  if (lower.includes('صباحا') || lower.includes('الصباح')) {
-    return { hours: hours < 12 ? hours : hours - 12, minutes };
+  // 2. "5 pm", "5pm", "at 3", "at 3.30", "@ 9"
+  const marker = lower.match(
+    /(?:\bat\b|@|الساعة)\s*(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(am|pm)?\b/,
+  );
+  if (marker) {
+    const hours = parseInt(marker[1], 10);
+    const minutes = marker[2] ? parseInt(marker[2], 10) : 0;
+    const ampm = marker[3];
+    if (hours <= 23 && minutes <= 59) {
+      return { hours: applyMeridiem(hours, ampm), minutes };
+    }
   }
-  if (lower.includes('مساء') || lower.includes('المساء') || lower.includes('مساءً')) {
-    return { hours: hours < 12 ? hours + 12 : hours, minutes };
+
+  // 3. "5 pm" / "5pm" without a preposition.
+  const ampmOnly = lower.match(/\b(\d{1,2})\s*(am|pm)\b/);
+  if (ampmOnly) {
+    const hours = parseInt(ampmOnly[1], 10);
+    if (hours <= 23) {
+      return { hours: applyMeridiem(hours, ampmOnly[2]), minutes: 0 };
+    }
+  }
+
+  // 4. "5 o'clock"
+  const oclock = lower.match(/\b(\d{1,2})\s*(?:o'?clock|oclock)\b/);
+  if (oclock) {
+    const hours = parseInt(oclock[1], 10);
+    if (hours <= 23) return { hours, minutes: 0 };
+  }
+
+  // 5. Arabic: "الساعة 3" is covered above; "3 مساء" / "3 صباحا" here.
+  const arabic = lower.match(/\b(\d{1,2})\s*(صباحا|صباحًا|مساء|مساءً|مساءا)\b/);
+  if (arabic) {
+    const hours = parseInt(arabic[1], 10);
+    if (hours <= 23) {
+      const isMorning = arabic[2].includes('صباح');
+      return { hours: isMorning ? hours % 12 : hours % 12 === 0 ? 12 : hours + 12, minutes: 0 };
+    }
   }
 
   return null;
+}
+
+function applyMeridiem(hours: number, ampm?: string): number {
+  if (ampm === 'pm' && hours < 12) return hours + 12;
+  if (ampm === 'am' && hours === 12) return 0;
+  return hours;
 }
 
 function findRelativeDays(text: string): number | null {

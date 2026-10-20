@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { supabase } from '@/lib/supabase';
@@ -40,27 +40,46 @@ export function AppointmentsScreen() {
 
   // Reminders respect the user's notification toggle rather than firing
   // unconditionally, which the previous inline implementation did.
+  //
+  // The check runs on an interval, not only when the screen state changes:
+  // before, a reminder that became due while the tab stayed open never fired.
+  // `notifiedRef` guards against duplicates while the database row is still
+  // catching up.
+  const notifiedRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (appointments.length === 0 || !settings.enabled) return;
     if (notificationSupport() !== 'granted') return;
 
-    const now = new Date();
-    for (const apt of appointments) {
-      const aptTime = new Date(apt.appointment_at);
-      const remindAt = new Date(aptTime.getTime() - apt.remind_before_hours * 3600 * 1000);
-      if (apt.notified || now < remindAt || now >= aptTime) continue;
+    const check = () => {
+      const now = Date.now();
+      for (const apt of appointments) {
+        if (notifiedRef.current.has(apt.id)) continue;
+        const aptTime = new Date(apt.appointment_at).getTime();
+        const remindAt = aptTime - apt.remind_before_hours * 3600 * 1000;
+        if (now < remindAt || now >= aptTime) continue;
 
-      try {
-        new Notification('Emo Reminder', {
-          body: `${apt.title} — ${formatDateTime(aptTime)}`,
-          tag: `emo-apt-${apt.id}`,
-        });
-      } catch {
-        // Some mobile browsers block the constructor; the appointment is
-        // still visible in-app, so this is not worth surfacing as an error.
+        try {
+          new Notification('Emo Reminder', {
+            body: `${apt.title} — ${formatDateTime(new Date(aptTime))}`,
+            tag: `emo-apt-${apt.id}`,
+          });
+        } catch {
+          // Some mobile browsers block the constructor; the appointment is
+          // still visible in-app, so this is not worth surfacing as an error.
+        }
+
+        notifiedRef.current.add(apt.id);
+        void supabase.from('appointments').update({ notified: true }).eq('id', apt.id);
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === apt.id && !a.notified ? { ...a, notified: true } : a)),
+        );
       }
-      void supabase.from('appointments').update({ notified: true }).eq('id', apt.id);
-    }
+    };
+
+    check();
+    const timer = window.setInterval(check, 30_000);
+    return () => window.clearInterval(timer);
   }, [appointments, settings.enabled]);
 
   function handleDateInput(text: string) {
@@ -104,11 +123,18 @@ export function AppointmentsScreen() {
     }
 
     // Ask for notification permission the first time an appointment is added,
-    // and keep the app's reminder preference in sync with that outcome.
+    // and keep the app's reminder preference in sync with that outcome —
+    // including in the database, so the choice survives a reload.
     const state = notificationSupport();
     if (state === 'default') {
       const result = await requestNotificationPermission();
-      if (result === 'granted') updateSettings({ enabled: true });
+      if (result === 'granted') {
+        updateSettings({ enabled: true });
+        await supabase
+          .from('profiles')
+          .update({ notifications_enabled: true })
+          .eq('id', user.id);
+      }
     }
 
     setTitle('');
@@ -118,7 +144,11 @@ export function AppointmentsScreen() {
   }
 
   async function deleteAppointment(id: string) {
-    await supabase.from('appointments').delete().eq('id', id);
+    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    if (error) {
+      setError('Could not delete that appointment.');
+      return;
+    }
     setAppointments((prev) => prev.filter((a) => a.id !== id));
   }
 

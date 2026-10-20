@@ -1,9 +1,16 @@
 ﻿import { AnimatePresence, motion } from 'framer-motion';
-import { type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { EASE, fadeUpVariants, springSnappy, springSoft } from './motionTokens';
 
 
-/** Wraps a screen so switching tabs cross-fades instead of snapping. */
+/**
+ * Wraps a screen so switching tabs cross-fades instead of snapping.
+ *
+ * The animation is skipped while the document is hidden. A background tab
+ * pauses requestAnimationFrame, so an exit animation never completes — and
+ * with AnimatePresence in "wait" mode the new screen would never mount,
+ * leaving the learner stuck on the old one.
+ */
 export function PageTransition({
   children,
   transitionKey,
@@ -11,6 +18,17 @@ export function PageTransition({
   children: ReactNode;
   transitionKey: string;
 }) {
+  const [animate, setAnimate] = useState(true);
+
+  useEffect(() => {
+    const update = () => setAnimate(!document.hidden);
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
+
+  if (!animate) return <>{children}</>;
+
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
@@ -190,7 +208,7 @@ export function CelebrationOverlay({
   open,
   title,
   subtitle,
-  emoji = 'ðŸŽ‰',
+  emoji = '🎉',
   onDone,
 }: {
   open: boolean;

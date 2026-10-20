@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { generateDailyQuests, type DailyQuest } from './quests';
 import { todayKey } from './profile';
 import { useTutor } from '@/context/TutorContext';
+import { useAuth } from '@/context/AuthContext';
 import type { Skill } from '@/lib/types';
 
 export interface DailyQuestState {
@@ -23,6 +24,7 @@ export interface DailyQuestState {
  */
 export function useDailyQuests(userId: string | null): DailyQuestState {
   const { profileSnapshot } = useTutor();
+  const { refreshProfile } = useAuth();
   const [quests, setQuests] = useState<DailyQuest[]>([]);
   const [loading, setLoading] = useState(true);
   const date = todayKey();
@@ -65,7 +67,8 @@ export function useDailyQuests(userId: string | null): DailyQuestState {
       return;
     }
 
-    // First visit today: persist the generated set.
+    // First visit today: persist the generated set (upsert-safe; migration 3
+    // adds UNIQUE(user_id, date, quest_key), so a double-visit cannot dupe).
     const rows = generated.map((q) => ({
       user_id: userId,
       quest_key: q.id,
@@ -75,16 +78,47 @@ export function useDailyQuests(userId: string | null): DailyQuestState {
       title: q.title,
       prompt: q.prompt,
       hint: q.hint,
+      answer: q.answer,
       xp_reward: q.xpReward,
       goal_skill: q.goal_skill,
+      goal_level: q.goal_level,
     }));
 
     const { data: inserted, error: insertError } = await supabase
       .from('daily_quests')
-      .insert(rows)
+      .upsert(rows, { onConflict: 'user_id,date,quest_key' })
       .select();
 
-    setQuests(insertError || !inserted ? applyLocal(generated, localKey) : inserted.map(fromRow));
+    if (!insertError && inserted && inserted.length > 0) {
+      setQuests(inserted.map(fromRow));
+      setLoading(false);
+      return;
+    }
+
+    // The answer/goal_level columns come from migration 3. Retry without them
+    // so quests still persist on a database that has not applied it.
+    const legacyRows = rows.map((row) => ({
+      user_id: row.user_id,
+      quest_key: row.quest_key,
+      date: row.date,
+      kind: row.kind,
+      skill: row.skill,
+      title: row.title,
+      prompt: row.prompt,
+      hint: row.hint,
+      xp_reward: row.xp_reward,
+      goal_skill: row.goal_skill,
+    }));
+    const { data: legacyInserted, error: legacyError } = await supabase
+      .from('daily_quests')
+      .upsert(legacyRows, { onConflict: 'user_id,date,quest_key' })
+      .select();
+
+    setQuests(
+      legacyError || !legacyInserted
+        ? applyLocal(generated, localKey)
+        : legacyInserted.map(fromRow),
+    );
     setLoading(false);
   }, [userId, date, generated, localKey]);
 
@@ -111,16 +145,30 @@ export function useDailyQuests(userId: string | null): DailyQuestState {
 
       if (!userId) return;
 
+      // Preferred path: the migration-3 RPC marks completion and adds XP in a
+      // single transaction, so a double-tap or concurrent visit cannot lose XP.
+      // The auth profile is refreshed so XP everywhere converges to the truth.
+      const { error: rpcError } = await supabase.rpc('complete_quest', {
+        p_quest_key: id,
+      });
+
+      if (!rpcError) {
+        await refreshProfile().catch(() => undefined);
+        return;
+      }
+
+      // Fallback (migration 3 not applied): plain update, then a guarded XP add.
       const { error } = await supabase
         .from('daily_quests')
         .update({ completed: true, completed_at: new Date().toISOString() })
         .eq('user_id', userId)
-        .eq('quest_key', id);
+        .eq('quest_key', id)
+        .eq('completed', false);
 
       // xp is a new column; a failure is non-fatal.
       if (!error) await awardXp(userId, target.xpReward);
     },
-    [quests, userId, localKey],
+    [quests, userId, localKey, refreshProfile],
   );
 
   const completedCount = quests.filter((q) => q.completed).length;
@@ -166,9 +214,11 @@ function fromRow(row: Record<string, unknown>): DailyQuest {
     hint: String(row.hint ?? ''),
     xpReward: Number(row.xp_reward) || 0,
     completed: Boolean(row.completed),
-    answer: null,
+    // Migration 3 persists the model answer; without it written quests lose
+    // their "Answer:" reveal after a reload.
+    answer: typeof row.answer === 'string' && row.answer.length > 0 ? row.answer : null,
     goal_skill: (row.goal_skill as Skill) ?? null,
-    goalLevel: (row.goal_level as DailyQuest['goalLevel']) ?? 'A1',
+    goal_level: (row.goal_level as DailyQuest['goal_level']) ?? undefined,
     created_at: String(row.created_at ?? new Date().toISOString()),
   };
 }

@@ -11,6 +11,7 @@ export type TabId =
   | 'chat'
   | 'progress'
   | 'appointments'
+  | 'vocabulary'
   | 'settings'
   | 'quiz';
 

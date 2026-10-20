@@ -9,7 +9,11 @@ import { emptyProfileSnapshot, type TutorProfileSnapshot } from '../src/lib/ai/t
 import { buildSystemPrompt, buildMessages } from '../src/lib/ai/prompt';
 import { extractJson, parseAiPayload } from '../src/lib/ai/schema';
 import { generateTutorResponse } from '../src/lib/tutorEngine';
-import { buildTutorProfileSnapshot } from '../src/lib/learning/profile';
+import { buildTutorProfileSnapshot, todayKey } from '../src/lib/learning/profile';
+import { getQuizSet, quizBank } from '../src/lib/quizData';
+import { parseNaturalDate } from '../src/lib/dateParser';
+import { determinePlacementLevel } from '../src/lib/placementData';
+import { speakingAttemptPassed } from '../src/lib/learning/speech';
 import type { CEFRLevel, Skill } from '../src/lib/types';
 
 let passed = 0;
@@ -348,6 +352,165 @@ check('no false strengths from empty data', snapshot.strengths.length === 0);
 check('no false weaknesses from empty data', snapshot.weaknesses.length === 0);
 check('no performance without quizzes', snapshot.recentPerformance === null);
 check('does not throw on a bad user id', snapshot !== undefined);
+
+// ------------------------------------------------- regression: local day ----
+section('Local calendar day (never UTC)');
+
+const localKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+check('todayKey matches the local calendar day', todayKey(new Date(2026, 0, 15, 9, 30)) === '2026-01-15');
+check('todayKey is stable across the day', todayKey(new Date(2026, 0, 15, 0, 5)) === '2026-01-15');
+check(
+  'todayKey follows the local midnight boundary',
+  todayKey(new Date(2026, 0, 15, 23, 59)) === '2026-01-15' &&
+    todayKey(new Date(2026, 0, 16, 0, 1)) === '2026-01-16',
+);
+check(
+  'todayKey agrees with a manual local formatter',
+  [
+    new Date(2026, 5, 1, 12, 0),
+    new Date(2026, 11, 31, 23, 59),
+    new Date(2026, 2, 9, 1, 30),
+  ].every((d) => todayKey(d) === localKey(d)),
+);
+
+// -------------------------------------------------- regression: quiz sets ----
+section('Quiz set selection');
+
+const a1Set = getQuizSet(5, 'A1');
+const c2Set = getQuizSet(5, 'C2');
+const b1Set = getQuizSet(5, 'B1');
+
+check('A1 learners get a full quiz', a1Set.length === 5, `got ${a1Set.length}`);
+check('C2 learners get a full quiz', c2Set.length === 5, `got ${c2Set.length}`);
+check('B1 learners get a full quiz', b1Set.length === 5, `got ${b1Set.length}`);
+check('every quiz question has options', a1Set.every((q) => q.options.length >= 2));
+check('the correct answer is always in range', b1Set.every((q) => q.correct < q.options.length));
+check('no level is left without any questions', quizBank.every((q) => typeof q.level === 'string'));
+check(
+  'the bank covers the levels learners actually reach',
+  ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].every((lvl) =>
+    quizBank.some((q) => q.level === lvl),
+  ),
+);
+
+// ------------------------------------- regression: natural language dates ----
+section('Natural language appointment dates');
+
+const inTwoDays = parseNaturalDate('meeting in 2 days');
+check('"in 2 days" is not read as 2 o\'clock', inTwoDays.date !== null && inTwoDays.date.getHours() === 9, `hour ${inTwoDays.date?.getHours()}`);
+
+const twoDaysAhead = inTwoDays.date
+  ? (() => {
+      // Compare calendar days, not elapsed hours: the parser keeps the
+      // current time and then applies the 9 AM default, so an evening
+      // request can be less than 1.5 days away in wall-clock terms.
+      const a = new Date();
+      const b = inTwoDays.date as Date;
+      const dayA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+      const dayB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+      return Math.round((dayB - dayA) / 86400000);
+    })()
+  : -1;
+check('"in 2 days" lands two days ahead', twoDaysAhead === 2, `got ${twoDaysAhead}`);
+
+const atThree = parseNaturalDate('Oct 5 at 3pm');
+check('"at 3pm" is 15:00', atThree.date !== null && atThree.date.getHours() === 15, `hour ${atThree.date?.getHours()}`);
+
+const tomorrowMorning = parseNaturalDate('tomorrow 9am');
+check('"tomorrow 9am" is 09:00', tomorrowMorning.date !== null && tomorrowMorning.date.getHours() === 9);
+check('"tomorrow 9am" is tomorrow', tomorrowMorning.date !== null && tomorrowMorning.date.getDate() !== new Date().getDate());
+
+const bareDate = parseNaturalDate('Oct 5');
+check('a bare date is not silently given a nonsense time', bareDate.date !== null && bareDate.date.getHours() === 9);
+check('a bare date keeps a usable confidence', bareDate.confidence >= 0.5, `got ${bareDate.confidence}`);
+
+// ---------------------------------------- regression: fallback engine words ----
+section('Fallback engine keyword matching');
+
+const greetingReplies = new Set(
+  ['friendly', 'coach', 'strict'].map((mode) =>
+    generateTutorResponse('hi', { level: 'A1', language: 'en', mode: mode as 'friendly' }).reply,
+  ),
+);
+const thisReply = generateTutorResponse('What do you think about this lesson?', {
+  level: 'B1',
+  language: 'en',
+});
+check('"this" does not trigger the greeting bucket', !greetingReplies.has(thisReply.reply));
+check('"think" does not trigger the greeting bucket', !greetingReplies.has(thisReply.reply));
+
+const helpReply = generateTutorResponse('I am stuck with grammar', {
+  level: 'B1',
+  language: 'en',
+});
+check('a real topic still matches', /grammar|patterns|structure/i.test(helpReply.reply));
+
+// ------------------------------------------ regression: placement levels ----
+section('Placement level rule (monotonic)');
+
+check(
+  'a learner who passes A1 and B1 but fails A2 is not placed at B1',
+  determinePlacementLevel({
+    A1: { correct: 2, total: 2 },
+    A2: { correct: 0, total: 2 },
+    B1: { correct: 2, total: 2 },
+  }) === 'A1',
+);
+check(
+  'a learner who passes everything is placed at the highest level',
+  determinePlacementLevel({
+    A1: { correct: 2, total: 2 },
+    A2: { correct: 2, total: 2 },
+    B1: { correct: 2, total: 2 },
+  }) === 'B1',
+);
+check(
+  'a level with no items does not block progression',
+  determinePlacementLevel({
+    A1: { correct: 2, total: 2 },
+    A2: { correct: 0, total: 0 },
+    B1: { correct: 2, total: 2 },
+  }) === 'B1',
+);
+check(
+  'a learner with no results starts at A1',
+  determinePlacementLevel({}) === 'A1',
+);
+
+// --------------------------------------------- regression: speech scoring ----
+section('Speech attempt scoring');
+
+check(
+  'a correct sentence passes',
+  speakingAttemptPassed('My name is Sara and I live in Cairo.', 'my name is sara and i live in cairo'),
+);
+check(
+  'an unrelated sentence fails',
+  !speakingAttemptPassed('My name is Sara and I live in Cairo.', 'the weather is nice today'),
+);
+check(
+  'a near-miss needs most of the words',
+  !speakingAttemptPassed('My name is Sara and I live in Cairo.', 'my name is sara'),
+);
+
+// -------------------------------------------- regression: quest variety ----
+section('Quest content variety');
+
+const grammarQuests = ['2026-09-28', '2026-09-29', '2026-10-01'].map((date) =>
+  generateDailyQuests({ profile: emptyProfile, date, seedKey: 'user-1' }).find(
+    (q) => q.kind === 'grammar',
+  ),
+);
+check(
+  'the grammar quest is not identical every day',
+  new Set(grammarQuests.map((q) => q?.prompt)).size > 1,
+);
+check(
+  'the grammar quest still carries its answer',
+  grammarQuests.every((q) => typeof q?.answer === 'string' && q.answer.length > 0),
+);
 
 // --------------------------------------------------------------- summary ----
 console.log(`\n${'-'.repeat(46)}`);

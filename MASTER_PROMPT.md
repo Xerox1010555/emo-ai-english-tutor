@@ -15,8 +15,21 @@ Non-negotiable quality bar: TypeScript strict, every user-visible failure has a 
 ## 2. PRODUCT DEFINITION
 
 - **Audience:** Arabic-speaking learners of English (A1→C2 CEFR). UI copy is English with intentional, natural Arabic support inside tutor replies (code-switching) and Arabic natural-language date parsing.
-- **Core loop:** Auth → Onboarding placement test → Dashboard (streak, today's plan) → Daily lesson + quests → Chat with AI tutor (corrections feed the profile) → Weekly progress → Adaptive re-focus.
+- **Core loop:** Auth → Onboarding placement test (all six skills) → Dashboard (streak, today's plan) → Daily lesson + quests → Chat with AI tutor (corrections feed the profile) → Vocabulary reviews → Weekly progress → Conservative level check.
 - **Vibe:** dark-first, calm, glassy mobile app (max-w-2xl), framer-motion micro-interactions, Personal-celebration moments on streaks and completions.
+
+### Non-negotiable rules (each one is a bug that was actually shipped and fixed — keep them)
+
+1. **"Today" is the learner's LOCAL day.** Never `toISOString()` for a day key. One helper (`todayKey`) is the only source. A UTC key flips the day at 03:00 for UTC+3 learners and silently breaks streaks, quests and lessons.
+2. **The edge function VERIFIES the JWT.** Checking that a header starts with `Bearer ` is not authentication — anyone can then spend the owner's model credit. Call Supabase Auth to verify, then rate-limit per user.
+3. **Never `await` a Supabase query inside `onAuthStateChange`.** PostgREST calls `auth.getSession()` internally, which waits for the auth lock held by that callback → deadlock → the app hangs on the loading screen forever. Defer with `setTimeout(..., 0)`.
+4. **Never `await` an exit animation to switch screens.** `AnimatePresence mode="wait"` + a hidden document (rAF paused) means the new screen never mounts. Skip the animation when `document.hidden`.
+5. **Every write that can race is a database function.** XP increments, quest completion and mistake counters are `SECURITY DEFINER` RPCs; a read-modify-write in the client loses updates.
+6. **Every new column/table has a fallback path.** The app must run on a database that has not applied the latest migration: retry without the new column, then fall back to computed/local values. The UI must never show a silent failure — an error state with a retry.
+7. **Only skills that were actually measured are stored.** Writing 0 for an untested skill permanently drags every average down.
+8. **Placement levels are monotonic.** Walk up from A1 and stop at the first level the learner failed. "Highest level with ≥50%" can skip a level.
+9. **The model is untrusted input.** Schema-validate everything it returns; reject rather than guess.
+10. **A date is not a time.** Only parse a time when there is a real time marker (`:`/`am`/`pm`/`at`/`o'clock`/Arabic markers). A bare number is a date, and "in 2 days" is not 02:00.
 
 ---
 
@@ -309,26 +322,31 @@ Legend: **[P0]** MVP must-ship · **[P1]** should-ship · **[P2]** differentiato
 src/
   main.tsx, App.tsx, index.css
   components/
-    ui/        (Button, Card, Modal, ProgressBar, ProgressRing, Animations, motion, primitives, motionTokens)
+    ui/        (Button, Card, Modal, ProgressBar, ProgressRing, Animations, motion, primitives, motionTokens, ErrorBoundary)
     screens/   (HomeScreen, RoadmapScreen, QuestsScreen, ChatScreen, ProgressScreen,
                VocabularyScreen, QuizScreen, AppointmentsScreen, SettingsScreen)
-    Layout.tsx  PlacementTest.tsx  AuthScreen.tsx  AssistantModeSwitch.tsx  Onboarding.tsx
-  context/     AuthContext.tsx  TutorContext.tsx  SettingsContext.tsx  NotificationContext.tsx
+    Layout.tsx  PlacementTest.tsx  AuthScreen.tsx  AssistantModeSwitch.tsx
+  context/     AuthContext.tsx  TutorContext.tsx  NotificationContext.tsx
   lib/
-    ai/        types.ts prompt.ts schema.ts provider.ts client.ts
-    learning/  constants.ts profile.ts quests.ts roadmap.ts useDailyQuests.ts useStreak.ts promote.ts
-    content/   lessons.ts quizBank.ts placementBank.ts vocabPacks.ts (typed, versioned)
-    time/      localDay.ts     # THE single source of "today"
-    dates/     parseNaturalDate.ts
-    errors/    mapSupabaseError.ts, toasts.ts
-    notifications/service.ts sw.ts
-    supabase.ts tutorEngine.ts
-scripts/  smoke.ts  gen-content.ts
+    ai/        types.ts prompt.ts schema.ts provider.ts client.ts content.ts
+    learning/  constants.ts profile.ts quests.ts roadmap.ts useDailyQuests.ts
+               dailyLesson.ts vocab.ts speech.ts
+    content/   (lesson bank lives in lib/lessonData.ts, quizData.ts, placementData.ts)
+    notifications/service.ts
+    supabase.ts tutorEngine.ts types.ts
+scripts/  smoke.ts
 supabase/
-  migrations/ (1 schema, 2 upgrade, 3 rpc+triggers)
-  functions/  tutor-reply/  push-reminder/
-public/    manifest.webmanifest  sw.js  icons/
+  migrations/ (1 schema, 2 ai upgrade, 3 atomic upgrade)
+  functions/  _shared/(auth.ts, llm.ts)  tutor-reply/  content-gen/
 ```
+
+**Two writers, one lesson.** `lib/learning/dailyLesson.ts` owns "today's lesson": read → (AI) → (curated fallback) → upsert, with an in-flight promise map so Home and Roadmap cannot generate two lessons or burn two model calls for the same day.
+
+**Two edge functions, shared plumbing.** `supabase/functions/_shared/auth.ts` verifies the caller's JWT; `_shared/llm.ts` owns provider resolution, the provider call, JSON extraction and a per-user rate limiter. `tutor-reply` produces conversation text; `content-gen` writes the daily lesson. Neither touches the database.
+
+**Vocabulary.** `lib/learning/vocab.ts` implements Leitner boxes (0–5 → 1/2/4/8/16/30 days). Words arrive from lessons (one tap) or manual entry; the studio shows what is due, runs a reveal/grade session and reports mastery.
+
+**Placement across six skills.** Multiple choice, listening (TTS plays the sentence), speaking (STT transcript compared word-by-word, `lib/learning/speech.ts`) and writing (length + required keyword). Unrunnable items are skipped, never counted as wrong.
 
 ---
 
@@ -366,3 +384,14 @@ public/    manifest.webmanifest  sw.js  icons/
 ---
 
 **DELIVERABLE STYLE:** Ship as complete working code in small labeled milestones matching the folder structure. When generating SQL, include down-safe idempotent statements only. When generating the edge function include `config.toml` + deploy instructions + secret names. Never claim a feature exists without wiring it to a visible button/layout entry point.
+
+---
+
+## 13. VERIFICATION LOOP (do not skip)
+
+1. `npm run typecheck` (strict) — zero errors.
+2. `npm run lint` — zero errors (fast-refresh warnings are acceptable).
+3. `npm test` — the pure-logic suite must cover every rule in section 2: local-day, quiz fallback, date parsing, keyword matching, placement monotonicity, speech scoring, quest variety, schema rejection, fallback engine.
+4. `npm run build` — production bundle succeeds.
+5. **Run it in a browser** (a real Supabase project, not mocks) and walk the whole flow: sign up → placement (answer one item of every type) → dashboard → open today's lesson → complete a quest → open vocabulary, add a word, run a review → take a quiz → open settings → sign out → sign back in. The last step matters: the sign-in path is where a broken auth listener hides.
+6. Check the browser console for failed requests. A 404 on a relation the app can live without is acceptable **only** if the UI degrades visibly; a 4xx on a write the user triggered must surface an error.

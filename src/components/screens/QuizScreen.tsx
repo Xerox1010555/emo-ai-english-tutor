@@ -4,10 +4,11 @@ import { supabase } from '@/lib/supabase';
 import { getQuizSet, type QuizQuestion } from '@/lib/quizData';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Check, X, Trophy, RotateCcw, ChevronRight, Brain } from 'lucide-react';
+import { Check, X, Trophy, RotateCcw, ChevronRight, Brain, Home } from 'lucide-react';
 import type { CEFRLevel } from '@/lib/types';
+import type { TabId } from '@/components/Layout';
 
-export function QuizScreen() {
+export function QuizScreen({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
   const { profile, user } = useAuth();
   const [quiz, setQuiz] = useState<QuizQuestion[] | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -17,6 +18,7 @@ export function QuizScreen() {
   const [finished, setFinished] = useState(false);
   const [pastResults, setPastResults] = useState<{ score: number; total: number; taken_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const loadPastResults = useCallback(async () => {
     if (!user) return;
@@ -35,19 +37,23 @@ export function QuizScreen() {
 
   function startQuiz() {
     const level = (profile as { current_level: CEFRLevel } | null)?.current_level;
-    setQuiz(getQuizSet(5, level));
+    const set = getQuizSet(5, level);
+    setQuiz(set);
     setCurrentIndex(0);
     setSelected(null);
     setShowAnswer(false);
     setScore(0);
     setFinished(false);
+    setSaveError(null);
   }
 
   function handleAnswer(idx: number) {
     if (showAnswer) return;
+    const question = quiz?.[currentIndex];
+    if (!question) return;
     setSelected(idx);
     setShowAnswer(true);
-    if (idx === quiz![currentIndex].correct) {
+    if (idx === question.correct) {
       setScore((s) => s + 1);
     }
   }
@@ -62,12 +68,15 @@ export function QuizScreen() {
       // Save results
       setFinished(true);
       if (user) {
-        await supabase.from('quiz_results').insert({
+        const { error } = await supabase.from('quiz_results').insert({
           user_id: user.id,
           quiz_type: 'mixed',
           score,
           total: quiz.length,
         });
+        if (error) {
+          setSaveError('Your result could not be saved. It will not appear in your history.');
+        }
         loadPastResults();
       }
     }
@@ -136,7 +145,7 @@ export function QuizScreen() {
   }
 
   // Results screen
-  if (finished) {
+  if (finished && quiz) {
     const pct = Math.round((score / quiz.length) * 100);
     return (
       <div className="px-5 py-6 space-y-6">
@@ -152,19 +161,44 @@ export function QuizScreen() {
             {pct >= 80 ? 'Excellent work. Keep this level.' : pct >= 50 ? 'Good. There\'s room to sharpen.' : 'Noted. We\'ll focus on these areas.'}
           </p>
         </div>
+
+        {saveError && (
+          <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/30 rounded-xl px-3.5 py-2.5">
+            {saveError}
+          </div>
+        )}
+
         <Button fullWidth size="lg" onClick={startQuiz}>
           <RotateCcw className="w-4 h-4" /> Try Again
         </Button>
         <Button fullWidth size="md" variant="ghost" onClick={() => setQuiz(null)}>
           Back to Quizzes
         </Button>
+        {onNavigate && (
+          <Button fullWidth size="md" variant="ghost" onClick={() => onNavigate('home')}>
+            <Home className="w-4 h-4" /> Back to Home
+          </Button>
+        )}
       </div>
     );
   }
 
   // Quiz in progress
-  const q = quiz[currentIndex];
-  const progress = (currentIndex / quiz.length) * 100;
+  const q = quiz?.[currentIndex];
+  const progress = quiz ? ((currentIndex + 1) / quiz.length) * 100 : 0;
+
+  if (!q) {
+    return (
+      <div className="px-5 py-6 space-y-6">
+        <Card className="text-center py-10 space-y-3">
+          <p className="text-sm text-gray-400">No questions are available for your level yet.</p>
+          <Button size="sm" variant="secondary" onClick={() => setQuiz(null)}>
+            Back to Quizzes
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="px-5 py-6 space-y-6 min-h-screen flex flex-col">

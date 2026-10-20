@@ -10,7 +10,9 @@ interface AuthContextValue {
   session: Session | null;
   profile: ExtendedProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  /** Set when the profile could not be loaded or created. */
+  profileError: string | null;
+  signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -23,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ExtendedProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   async function loadProfile(userId: string) {
     const { data, error } = await supabase
@@ -32,18 +35,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (error) {
       console.error('Profile load error:', error);
+      setProfileError('Could not load your profile.');
       return;
     }
-    if (!data) {
-      // Create profile on first login
-      const { data: newProfile, error: createErr } = await supabase
-        .from('profiles')
-        .insert({ id: userId })
-        .select()
-        .single();
-      if (!createErr && newProfile) setProfile(newProfile as ExtendedProfile);
-    } else {
+    if (data) {
+      setProfileError(null);
       setProfile(data as ExtendedProfile);
+      return;
+    }
+
+    // First login: create the profile. Another request (the auth listener, or
+    // a second tab) may create it first, so a conflict is resolved by reading
+    // the row that won rather than leaving the app without a profile.
+    const { data: newProfile, error: createErr } = await supabase
+      .from('profiles')
+      .insert({ id: userId })
+      .select()
+      .single();
+
+    if (!createErr && newProfile) {
+      setProfileError(null);
+      setProfile(newProfile as ExtendedProfile);
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (existing) {
+      setProfileError(null);
+      setProfile(existing as ExtendedProfile);
+    } else {
+      setProfileError('Could not prepare your profile. Please try again.');
     }
   }
 
@@ -66,16 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+
+      // The database work is DEFERRED out of the auth callback on purpose.
+      //
+      // Every PostgREST request calls auth.getSession() internally, and
+      // getSession() waits for the auth lock — which the onAuthStateChange
+      // callback holds while it runs. Awaiting a query inside the callback
+      // therefore deadlocks: the query waits for the lock, the callback waits
+      // for the query, and the app hangs on the loading screen forever.
+      // Supabase documents the same rule.
+      window.setTimeout(() => {
+        if (!mounted) return;
         if (session?.user) {
-          await loadProfile(session.user.id);
+          void loadProfile(session.user.id);
         } else {
           setProfile(null);
         }
-        setLoading(false);
-      })();
+      }, 0);
     });
 
     return () => {
@@ -87,10 +123,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signUp(email: string, password: string) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
+
+    // With email confirmation enabled there is no session yet. The UI has to
+    // say so — otherwise a new learner is dropped back to the login form with
+    // no explanation of what to do next.
+    if (data.user && !data.session) {
+      return { error: null, needsConfirmation: true };
+    }
+
     if (data.user) {
       await loadProfile(data.user.id);
     }
-    return { error: null };
+    return { error: null, needsConfirmation: false };
   }
 
   async function signIn(email: string, password: string) {
@@ -105,12 +149,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     await supabase.auth.signOut();
     setProfile(null);
+    setProfileError(null);
     setUser(null);
     setSession(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        loading,
+        profileError,
+        signUp,
+        signIn,
+        signOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

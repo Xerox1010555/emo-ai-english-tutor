@@ -42,21 +42,21 @@ export function SettingsScreen() {
   const { refreshSnapshot } = useTutor();
 
   const [targetLevel, setTargetLevel] = useState<CEFRLevel>(profile?.target_level ?? 'B2');
-  const [notificationTime, setNotificationTime] = useState(
-    (profile?.notification_time ?? '09:00').slice(0, 5),
-  );
   const [language, setLanguage] = useState(profile?.preferred_language ?? 'ar');
   const [goals, setGoals] = useState<string[]>(profile?.learning_goals ?? []);
   const [goalDraft, setGoalDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
 
   const currentLevel = profile?.current_level ?? 'A1';
+  // The reminder time has a single source of truth: the notification context
+  // (which is hydrated from the profile and written straight back to it).
+  const notificationTime = settings.time;
 
   useEffect(() => {
     setTargetLevel(profile?.target_level ?? 'B2');
-    setNotificationTime((profile?.notification_time ?? '09:00').slice(0, 5));
     setLanguage(profile?.preferred_language ?? 'ar');
     setGoals(Array.isArray(profile?.learning_goals) ? profile.learning_goals : []);
   }, [profile]);
@@ -73,7 +73,8 @@ export function SettingsScreen() {
   async function saveSettings() {
     if (!user) return;
     setSaving(true);
-    await supabase
+    setSaveError(null);
+    const { error } = await supabase
       .from('profiles')
       .update({
         target_level: targetLevel,
@@ -82,6 +83,14 @@ export function SettingsScreen() {
         learning_goals: goals,
       })
       .eq('id', user.id);
+
+    if (error) {
+      // Never claim success when the write failed.
+      setSaveError('Your changes were not saved. Check your connection and try again.');
+      setSaving(false);
+      return;
+    }
+
     await refreshProfile();
     await refreshSnapshot();
     setSaving(false);
@@ -93,24 +102,44 @@ export function SettingsScreen() {
     const next = !settings.enabled;
     if (next && permission === 'default') {
       const result = await requestPermission();
-      if (result !== 'granted') return;
+      if (result !== 'granted') {
+        setSaveError('Notifications are blocked by the browser, so reminders stay off.');
+        return;
+      }
     }
-    if (next && permission === 'denied') return;
+    if (next && permission === 'denied') {
+      setSaveError('Notifications are blocked at the browser level for this site.');
+      return;
+    }
 
     updateSettings({ enabled: next });
     if (user) {
-      await supabase.from('profiles').update({ notifications_enabled: next }).eq('id', user.id);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ notifications_enabled: next })
+        .eq('id', user.id);
+      if (error) setSaveError('Could not save the reminder preference.');
     }
   }
 
   async function persistReminderField(patch: Record<string, unknown>) {
-    if (user) await supabase.from('profiles').update(patch).eq('id', user.id);
+    if (!user) return;
+    const { error } = await supabase.from('profiles').update(patch).eq('id', user.id);
+    if (error) setSaveError('Could not save the reminder setting.');
   }
 
   async function retakePlacement() {
     if (!user) return;
     setResetting(true);
-    await supabase.from('profiles').update({ placement_done: false }).eq('id', user.id);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ placement_done: false })
+      .eq('id', user.id);
+    if (error) {
+      setSaveError('Could not restart the placement test.');
+      setResetting(false);
+      return;
+    }
     await refreshProfile();
   }
 
@@ -455,6 +484,12 @@ export function SettingsScreen() {
       </div>
 
       {/* Save */}
+      {saveError && (
+        <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/30 rounded-xl px-3.5 py-2.5">
+          {saveError}
+        </div>
+      )}
+
       <Button
         fullWidth
         size="lg"

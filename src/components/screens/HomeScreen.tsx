@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  BookMarked,
   BookOpen,
+  Brain,
   Calendar,
   CheckCircle2,
   Clock,
@@ -17,10 +19,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { supabase } from '@/lib/supabase';
-import { getLessonForLevel } from '@/lib/lessonData';
+import { ensureDailyLesson } from '@/lib/learning/dailyLesson';
 import { buildRoadmap, currentStage } from '@/lib/learning/roadmap';
 import { todayKey } from '@/lib/learning/profile';
 import { useDailyQuests } from '@/lib/learning/useDailyQuests';
+import { loadDueVocab } from '@/lib/learning/vocab';
 import type { ConversationMessage, DailyLesson } from '@/lib/types';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -39,6 +42,8 @@ export function Home({ onNavigate }: HomeProps) {
   const { profileSnapshot, setFocus } = useTutor();
   const { updateContext } = useNotifications();
   const [todayLesson, setTodayLesson] = useState<DailyLesson | null>(null);
+  const [lessonError, setLessonError] = useState(false);
+  const [vocabDue, setVocabDue] = useState(0);
   const [lastMessage, setLastMessage] = useState<ConversationMessage | null>(null);
   const [lastSessionAt, setLastSessionAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,34 +53,21 @@ export function Home({ onNavigate }: HomeProps) {
 
   const loadTodayLesson = useCallback(async () => {
     if (!user) return;
-    const { data: existing } = await supabase
-      .from('daily_lessons')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('date', date)
-      .maybeSingle();
+    // One shared writer for "today's lesson" — Home and Roadmap both read it,
+    // so the learner can never end up with two lessons for one day.
+    const lesson = await ensureDailyLesson({
+      userId: user.id,
+      date,
+      level: profile?.current_level ?? 'A1',
+      skill: profileSnapshot.weaknesses[0] ?? null,
+      weakSkills: profileSnapshot.weaknesses,
+      goals: profile?.learning_goals ?? [],
+      language: profile?.preferred_language === 'en' ? 'en' : 'ar',
+    });
 
-    if (existing) {
-      setTodayLesson(existing as DailyLesson);
-      return;
-    }
-
-    const lesson = getLessonForLevel(profile?.current_level ?? 'A1');
-    const { data: created } = await supabase
-      .from('daily_lessons')
-      .insert({
-        user_id: user.id,
-        date,
-        title: lesson.title,
-        skill: lesson.skill,
-        content: lesson.content,
-        duration_minutes: lesson.durationMinutes,
-      })
-      .select()
-      .single();
-
-    setTodayLesson(created ? (created as DailyLesson) : null);
-  }, [user, date, profile?.current_level]);
+    setTodayLesson(lesson);
+    setLessonError(!lesson);
+  }, [user, date, profile?.current_level, profile?.learning_goals, profile?.preferred_language, profileSnapshot.weaknesses]);
 
   const loadLastMessage = useCallback(async () => {
     if (!user) return;
@@ -113,6 +105,18 @@ export function Home({ onNavigate }: HomeProps) {
       setLoading(false);
     })();
   }, [loadTodayLesson, loadLastMessage, updateStreak]);
+
+  // How many vocabulary cards are waiting for a review.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void loadDueVocab(user.id).then((items) => {
+      if (!cancelled) setVocabDue(items.length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, quests.quests.length]);
 
   // Keep the reminder scheduler informed about the real learning state.
   useEffect(() => {
@@ -293,7 +297,17 @@ export function Home({ onNavigate }: HomeProps) {
           </Card>
         ) : (
           <Card>
-            <p className="text-sm text-gray-500 text-center py-4">No lesson generated yet.</p>
+            {lessonError ? (
+              <div className="text-center py-4 space-y-2">
+                <p className="text-sm text-gray-400">Could not prepare today&apos;s lesson.</p>
+                <p className="text-xs text-gray-600">Check your connection and try again.</p>
+                <Button size="sm" variant="secondary" onClick={() => void loadTodayLesson()}>
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">Preparing today&apos;s lesson...</p>
+            )}
           </Card>
         )}
       </motion.div>
@@ -366,6 +380,26 @@ export function Home({ onNavigate }: HomeProps) {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white">Schedule</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">Add a reminder</p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('quiz')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
+              <Brain className="w-[18px] h-[18px] text-accent-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Test yourself</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">5 quick questions</p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('vocabulary')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-primary-500/10 flex items-center justify-center">
+              <BookMarked className="w-[18px] h-[18px] text-primary-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Vocabulary</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
+                {vocabDue > 0 ? `${vocabDue} due for review` : 'Your word deck'}
+              </p>
             </div>
           </Card>
         </div>

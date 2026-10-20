@@ -501,6 +501,14 @@ async function recordMistakes(userId: string, corrections: AiCorrection[]): Prom
     const label = correction.original.trim().slice(0, 120);
     if (!label) continue;
 
+    // Preferred: one atomic statement (migration 3) — no read-modify-write.
+    const { error: rpcError } = await supabase.rpc('bump_recurring_mistake', {
+      p_label: label,
+      p_category: correction.category,
+    });
+    if (!rpcError) continue;
+
+    // Fallback for an un-migrated database.
     const { data: existing } = await supabase
       .from('recurring_mistakes')
       .select('id, occurrences')

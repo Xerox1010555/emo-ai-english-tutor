@@ -14,8 +14,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
 import { supabase } from '@/lib/supabase';
 import { CEFR_ORDER, levelIndex } from '@/lib/learning/constants';
+import { estimateLevelFromProgress } from '@/lib/learning/profile';
 import type { DailyLesson, LevelHistoryEntry, QuizResult, VocabItem } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EASE } from '@/components/ui/motionTokens';
@@ -27,17 +29,20 @@ import {
   SkillGrid,
   StatCard,
 } from '@/components/ui/primitives';
+import type { TabId } from '@/components/Layout';
 
 const allSkills = ['Grammar', 'Vocabulary', 'Listening', 'Speaking', 'Writing', 'Reading'] as const;
 
-export function ProgressScreen() {
-  const { profile, user } = useAuth();
-  const { profileSnapshot, profileLoading } = useTutor();
+export function ProgressScreen({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
+  const { profile, user, refreshProfile } = useAuth();
+  const { profileSnapshot, profileLoading, refreshSnapshot } = useTutor();
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [lessons, setLessons] = useState<DailyLesson[]>([]);
   const [vocab, setVocab] = useState<VocabItem[]>([]);
   const [levelHistory, setLevelHistory] = useState<LevelHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [promoting, setPromoting] = useState(false);
+  const [promoteNote, setPromoteNote] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -85,12 +90,42 @@ export function ProgressScreen() {
 
   const currentLevelIdx = levelIndex(profile?.current_level ?? 'A1');
   const targetLevelIdx = levelIndex(profile?.target_level ?? 'B2');
-  const levelProgress =
-    targetLevelIdx > 0
-      ? Math.min(100, Math.round((currentLevelIdx / targetLevelIdx) * 100))
-      : currentLevelIdx > 0
-        ? 100
-        : 0;
+  // "Progress to target" used to be current/target, which is always 0% for an
+  // A1 learner and misleading for everyone else. It is now the share of the
+  // CEFR ladder that is behind you, and the card states the remaining steps.
+  const stepsToTarget = Math.max(0, targetLevelIdx - currentLevelIdx);
+  const levelProgress = Math.min(
+    100,
+    Math.round((currentLevelIdx / Math.max(targetLevelIdx, 1)) * 100),
+  );
+
+  // Level check: the estimate only counts when enough skills have real signal.
+  const estimate = estimateLevelFromProgress(profileSnapshot.skillProgress);
+  const canPromote =
+    estimate !== null &&
+    levelIndex(estimate) > currentLevelIdx &&
+    allSkills.filter((s) => profileSnapshot.skillProgress[s] > 0).length >= 3;
+
+  async function promoteLevel() {
+    if (!user || !estimate) return;
+    setPromoting(true);
+    setPromoteNote(null);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ current_level: estimate })
+      .eq('id', user.id);
+    if (error) {
+      setPromoteNote('Could not update your level. Try again.');
+    } else {
+      await supabase
+        .from('level_history')
+        .insert({ user_id: user.id, level: estimate, score: 100 });
+      setPromoteNote(`Level updated to ${estimate}. Your plan and tutor now follow it.`);
+      await refreshProfile();
+      await refreshSnapshot();
+    }
+    setPromoting(false);
+  }
 
   const recentQuizzes = quizResults.slice(-10);
 
@@ -98,7 +133,10 @@ export function ProgressScreen() {
     return Array.from({ length: 7 }).map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      const dateStr = d.toISOString().slice(0, 10);
+      // Local day, matching todayKey() — the lesson rows are keyed to the
+      // user's calendar day, not UTC.
+      const y = d.getFullYear();
+      const dateStr = `${y}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       return {
         date: dateStr,
         count: lessons.filter((l) => l.date === dateStr && l.completed).length,
@@ -144,6 +182,11 @@ export function ProgressScreen() {
                 <span className="font-bold text-white">{profile?.target_level}</span>
               </span>
             </div>
+            <p className="text-[11px] text-gray-500">
+              {stepsToTarget > 0
+                ? `${stepsToTarget} level${stepsToTarget > 1 ? 's' : ''} between you and your target`
+                : 'You are at your target level'}
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {CEFR_ORDER.map((lvl, i) => {
                 const passed = i < currentLevelIdx;
@@ -167,6 +210,45 @@ export function ProgressScreen() {
           </div>
         </Card>
       </motion.div>
+
+      {/* Level check — a conservative estimate, applied only with the learner's
+          confirmation. Nothing is promoted silently. */}
+      {canPromote && estimate && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.34, ease: EASE }}
+        >
+          <SectionHeader title="Level check" />
+          <Card className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-success-500/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-[18px] h-[18px] text-success-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">
+                  Your work now points to {estimate}
+                </p>
+                <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                  Your recent lessons and quizzes suggest you are working at {estimate} level
+                  (currently {profile?.current_level}). Moving up unlocks harder content.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => void promoteLevel()} loading={promoting}>
+                Move me to {estimate}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setPromoteNote('No problem — staying at your current level.')}>
+                Not yet
+              </Button>
+            </div>
+            {promoteNote && (
+              <p className="text-[11px] text-gray-400 leading-relaxed">{promoteNote}</p>
+            )}
+          </Card>
+        </motion.div>
+      )}
 
       {/* Stats */}
       <motion.div
@@ -343,6 +425,16 @@ export function ProgressScreen() {
               height="md"
               label="Vocabulary mastery"
             />
+            {onNavigate && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="mt-3"
+                onClick={() => onNavigate('vocabulary')}
+              >
+                Open vocabulary studio
+              </Button>
+            )}
           </Card>
         </motion.div>
       )}

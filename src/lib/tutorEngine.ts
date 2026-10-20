@@ -179,14 +179,39 @@ const topicResponses: { keywords: string[]; response: string }[] = [
   },
 ];
 
+/**
+ * Matches a topic by whole word only.
+ *
+ * A plain `includes` made "this", "think" and "which" trigger the greeting
+ * bucket, because they all contain "hi". Short keywords are matched as whole
+ * words; longer ones are matched as whole words too, so "plan" does not fire on
+ * "planning" but "planning" does fire on "planning".
+ */
 function matchTopic(text: string): string | null {
   const lower = text.toLowerCase();
   for (const topic of topicResponses) {
-    if (topic.keywords.some((k) => lower.includes(k))) {
+    if (topic.keywords.some((k) => containsWord(lower, k))) {
       return topic.response;
     }
   }
   return null;
+}
+
+/** Whole-word containment, tolerant of plurals and simple verb endings. */
+function containsWord(haystack: string, needle: string): boolean {
+  const n = needle.toLowerCase();
+  if (n.length <= 2) {
+    // Very short keywords ("hi") still need a word boundary, otherwise they
+    // match inside unrelated words.
+    return new RegExp(`\\b${escapeRegExp(n)}\\b`, 'i').test(haystack);
+  }
+  const escaped = escapeRegExp(n);
+  const pattern = new RegExp(`\\b${escaped}(?:s|es|d|ed|ing)?\\b`, 'i');
+  return pattern.test(haystack);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

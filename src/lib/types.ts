@@ -41,6 +41,12 @@ export interface DailyLesson {
   content: string;
   duration_minutes: number;
   completed: boolean;
+  /** Words introduced by the lesson — can be pushed into the vocabulary deck. */
+  vocab?: { word: string; definition: string; example: string }[] | null;
+  /** CEFR level the lesson was written for. */
+  level?: string | null;
+  /** 'ai' when the model wrote it, 'bank' when it came from the curated set. */
+  source?: string | null;
   created_at: string;
 }
 

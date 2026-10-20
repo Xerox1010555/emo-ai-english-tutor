@@ -12,8 +12,18 @@ export interface ExtendedProfile extends Profile {
   xp?: number | null;
 }
 
+/**
+ * The LOCAL calendar day as YYYY-MM-DD.
+ *
+ * This must never be `toISOString()` — that is UTC, which flips the day at
+ * 03:00 for UTC+3 learners (streak, quests, and "today's lesson" would all
+ * follow a day that is not the user's).
+ */
 export function todayKey(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /**

@@ -11,8 +11,12 @@ import { ChatScreen } from '@/components/screens/ChatScreen';
 import { ProgressScreen } from '@/components/screens/ProgressScreen';
 import { AppointmentsScreen } from '@/components/screens/AppointmentsScreen';
 import { QuizScreen } from '@/components/screens/QuizScreen';
+import { VocabularyScreen } from '@/components/screens/VocabularyScreen';
 import { SettingsScreen } from '@/components/screens/SettingsScreen';
 import { PageTransition } from '@/components/ui/motion';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { Button } from '@/components/ui/Button';
+import { AlertCircle } from 'lucide-react';
 import type { CEFRLevel, Skill } from '@/lib/types';
 
 function LoadingScreen({ label = 'Loading...' }: { label?: string }) {
@@ -29,29 +33,37 @@ function LoadingScreen({ label = 'Loading...' }: { label?: string }) {
 }
 
 function App() {
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile, loading, profileError, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [submittingPlacement, setSubmittingPlacement] = useState(false);
 
   const handlePlacementComplete = useCallback(
-    async (results: { level: CEFRLevel; skillScores: Record<Skill, number> }) => {
+    async (results: {
+      level: CEFRLevel;
+      skillScores: Partial<Record<Skill, number>>;
+    }) => {
       if (!user) return;
       setSubmittingPlacement(true);
       try {
+        // Only skills that were actually measured are stored. Writing a 0 for a
+        // skill that was never tested used to drag every skill average down
+        // for the rest of the learner's life.
         const skillEntries = Object.entries(results.skillScores) as [Skill, number][];
 
-        await Promise.all(
-          skillEntries.map(([skill, score]) =>
-            supabase.from('placement_results').insert({ user_id: user.id, skill, score }),
-          ),
-        );
+        if (skillEntries.length > 0) {
+          await Promise.all(
+            skillEntries.map(([skill, score]) =>
+              supabase.from('placement_results').insert({ user_id: user.id, skill, score }),
+            ),
+          );
 
-        const avgScore = Math.round(
-          skillEntries.reduce((sum, [, score]) => sum + score, 0) / skillEntries.length,
-        );
-        await supabase
-          .from('level_history')
-          .insert({ user_id: user.id, level: results.level, score: avgScore });
+          const avgScore = Math.round(
+            skillEntries.reduce((sum, [, score]) => sum + score, 0) / skillEntries.length,
+          );
+          await supabase
+            .from('level_history')
+            .insert({ user_id: user.id, level: results.level, score: avgScore });
+        }
 
         await supabase
           .from('profiles')
@@ -70,7 +82,34 @@ function App() {
 
   if (loading) return <LoadingScreen />;
   if (!user) return <AuthScreen />;
-  if (!profile) return <LoadingScreen />;
+
+  // A missing profile must not become an endless spinner: say what happened
+  // and offer a way out.
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-ink-950 px-6">
+        <div className="glass rounded-2xl p-6 text-center space-y-4 max-w-sm w-full">
+          <div className="w-12 h-12 rounded-2xl bg-warning-500/10 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6 text-warning-400" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-white">We could not load your profile</h2>
+            <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+              {profileError ?? 'Something went wrong while preparing your account.'}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button fullWidth onClick={() => void refreshProfile()}>
+              Try again
+            </Button>
+            <Button fullWidth variant="ghost" onClick={() => window.location.reload()}>
+              Reload the app
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!profile.placement_done) {
     if (submittingPlacement) return <LoadingScreen label="Setting up your plan..." />;
@@ -79,16 +118,19 @@ function App() {
 
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-      <PageTransition transitionKey={activeTab}>
-        {activeTab === 'home' && <Home onNavigate={setActiveTab} />}
-        {activeTab === 'roadmap' && <RoadmapScreen onNavigate={setActiveTab} />}
-        {activeTab === 'quests' && <QuestsScreen onNavigate={setActiveTab} />}
-        {activeTab === 'chat' && <ChatScreen />}
-        {activeTab === 'progress' && <ProgressScreen />}
-        {activeTab === 'appointments' && <AppointmentsScreen />}
-        {activeTab === 'settings' && <SettingsScreen />}
-        {activeTab === 'quiz' && <QuizScreen />}
-      </PageTransition>
+      <ErrorBoundary screenKey={activeTab}>
+        <PageTransition transitionKey={activeTab}>
+          {activeTab === 'home' && <Home onNavigate={setActiveTab} />}
+          {activeTab === 'roadmap' && <RoadmapScreen onNavigate={setActiveTab} />}
+          {activeTab === 'quests' && <QuestsScreen onNavigate={setActiveTab} />}
+          {activeTab === 'chat' && <ChatScreen />}
+          {activeTab === 'progress' && <ProgressScreen onNavigate={setActiveTab} />}
+          {activeTab === 'appointments' && <AppointmentsScreen />}
+          {activeTab === 'vocabulary' && <VocabularyScreen onNavigate={setActiveTab} />}
+          {activeTab === 'settings' && <SettingsScreen />}
+          {activeTab === 'quiz' && <QuizScreen onNavigate={setActiveTab} />}
+        </PageTransition>
+      </ErrorBoundary>
     </Layout>
   );
 }

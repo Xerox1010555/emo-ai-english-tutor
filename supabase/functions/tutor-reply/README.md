@@ -20,6 +20,20 @@ Optional secrets:
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | Model id |
 | `LLM_TEMPERATURE` | `0.7` | Sampling temperature |
 | `LLM_MAX_TOKENS` | `500` | Completion cap |
+| `TUTOR_RATE_LIMIT` | `40` | Calls per user per hour |
+
+## Authentication
+
+The caller's Supabase access token is **verified** against Supabase Auth
+before any model call. A request with a missing, malformed, or invalid token
+gets `401 unauthorized` and costs nothing.
+
+This matters: checking only that the header starts with `Bearer ` would let
+anyone burn the owner's model credit with a made-up string.
+
+A per-user rate limit is applied on top of the verification. The limiter is
+in-memory, so it bounds abuse per edge instance — a global quota would need a
+database counter.
 
 ## Contract
 
@@ -48,3 +62,6 @@ It performs no database reads or writes, no profile lookups, and no state
 changes. The authenticated client owns the RLS-protected database and sends
 already-scoped, validated context in the system prompt. The model only ever
 produces conversation text.
+
+Shared code lives in `supabase/functions/_shared/` (JWT verification, provider
+calls, rate limiter) and is used by `content-gen` as well.
