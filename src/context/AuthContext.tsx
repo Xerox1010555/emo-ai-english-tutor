@@ -73,6 +73,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /**
+   * Tells the database how far this device's clock is from UTC.
+   *
+   * The daily reminder is stored in the learner's own local time, so the
+   * server needs the offset to fire it at the right hour. It is sent once per
+   * session; a failure here is not important enough to surface (the column
+   * only exists after migration 4).
+   */
+  async function syncTimezone(userId: string) {
+    try {
+      const offsetMinutes = Math.round(-new Date().getTimezoneOffset());
+      const { data } = await supabase
+        .from('profiles')
+        .select('tz_offset_minutes')
+        .eq('id', userId)
+        .maybeSingle();
+      if (data && Number(data.tz_offset_minutes) === offsetMinutes) return;
+      await supabase
+        .from('profiles')
+        .update({ tz_offset_minutes: offsetMinutes })
+        .eq('id', userId);
+    } catch {
+      // Non-fatal: reminders fall back to the stored offset.
+    }
+  }
+
   async function refreshProfile() {
     if (user) await loadProfile(user.id);
   }
@@ -85,7 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadProfile(session.user.id).finally(() => mounted && setLoading(false));
+        loadProfile(session.user.id)
+          .then(() => syncTimezone(session!.user.id))
+          .finally(() => mounted && setLoading(false));
       } else {
         setLoading(false);
       }
@@ -107,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.setTimeout(() => {
         if (!mounted) return;
         if (session?.user) {
-          void loadProfile(session.user.id);
+          void loadProfile(session.user.id).then(() => syncTimezone(session!.user.id));
         } else {
           setProfile(null);
         }

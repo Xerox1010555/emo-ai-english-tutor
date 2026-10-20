@@ -18,15 +18,25 @@ Additive and idempotent.
 */
 
 -- ---------------------------------------------------------------------------
--- 1. UI language
+-- 1. UI language and timezone
 -- ---------------------------------------------------------------------------
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ui_language text NOT NULL DEFAULT 'en';
+
+-- Minutes AHEAD of UTC (180 for UTC+3). The client sends it so the database
+-- can work out each learner's LOCAL time without any client running — the
+-- reminder time is stored in the learner's own clock, so comparing it with
+-- UTC directly would fire the reminder at the wrong hour for everyone.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tz_offset_minutes int NOT NULL DEFAULT 0;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ui_language_check') THEN
     ALTER TABLE profiles ADD CONSTRAINT profiles_ui_language_check
       CHECK (ui_language IN ('en', 'ar'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_tz_offset_check') THEN
+    ALTER TABLE profiles ADD CONSTRAINT profiles_tz_offset_check
+      CHECK (tz_offset_minutes BETWEEN -720 AND 840);
   END IF;
 END $$;
 
@@ -86,9 +96,9 @@ CREATE POLICY "update_own_weekly_reports" ON weekly_reports FOR UPDATE TO authen
 -- ---------------------------------------------------------------------------
 -- 4. Which subscriptions are due right now
 -- ---------------------------------------------------------------------------
--- A learner's reminder time is stored in their own local clock. The stored
--- offset (minutes behind UTC) lets the database work out the current local
--- hour without any client running.
+-- A learner's reminder time is stored in their own local clock, and
+-- `tz_offset_minutes` says how far that clock is from UTC. The local time is
+-- therefore (UTC now) - offset.
 CREATE OR REPLACE FUNCTION due_push_subscriptions(p_now timestamptz DEFAULT now())
 RETURNS TABLE (
   user_id uuid,
@@ -113,17 +123,17 @@ AS $$
    WHERE p.notifications_enabled = true
      AND p.reminder_frequency <> 'off'
      AND (
-       -- The learner is in their reminder window right now.
-       (p.reminder_time <= (p_now AT TIME ZONE 'UTC')::time
-        AND (p_now AT TIME ZONE 'UTC')::time < (p_reminder_time + INTERVAL '1 hour')::time)
-       OR
-       -- Weekday-only reminders, evaluated in the learner's local time.
-       (p.reminder_frequency = 'weekdays'
-        AND EXTRACT(ISODOW FROM (p_now AT TIME ZONE 'UTC')) < 6)
+       -- Inside the learner's own reminder hour.
+       (p_now AT TIME ZONE 'UTC' - (p.tz_offset_minutes || ' minutes')::interval)::time
+         >= p.notification_time
+       AND (p_now AT TIME ZONE 'UTC' - (p.tz_offset_minutes || ' minutes')::interval)::time
+         < (p.notification_time + INTERVAL '1 hour')::time
      )
      AND (
-       p_now AT TIME ZONE 'UTC' IS NULL
-       OR true
+       p.reminder_frequency <> 'weekdays'
+       OR EXTRACT(
+            ISODOW FROM (p_now AT TIME ZONE 'UTC' - (p.tz_offset_minutes || ' minutes')::interval)
+          ) < 6
      );
 $$;
 
