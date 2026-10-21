@@ -83,6 +83,11 @@ export interface AiRequest {
   mode: AssistantMode;
   /** Current lesson / quest context, when the learner is inside one. */
   focus?: { skill: Skill; title: string } | null;
+  /**
+   * Replaces the default personality prompt. Used by the exam grader and the
+   * roleplay scenarios, which need a different system role from the tutor.
+   */
+  systemPrompt?: string;
 }
 
 export interface AiResponsePayload {

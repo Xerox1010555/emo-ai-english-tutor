@@ -32,8 +32,17 @@ export interface AskResult {
   live: boolean;
 }
 
-export async function askTutor(request: AiRequest, options: { skipCache?: boolean } = {}): Promise<AskResult> {
-  const key = buildCacheKey(request);
+export async function askTutor(
+  request: AiRequest,
+  options: { skipCache?: boolean; systemPrompt?: string } = {},
+): Promise<AskResult> {
+  // A custom system prompt changes the answer entirely, so it must not share
+  // a cache entry with the normal tutor conversation.
+  const effective: AiRequest = options.systemPrompt
+    ? { ...request, systemPrompt: options.systemPrompt }
+    : request;
+
+  const key = buildCacheKey(effective);
   const now = Date.now();
 
   if (!options.skipCache) {
@@ -49,7 +58,7 @@ export async function askTutor(request: AiRequest, options: { skipCache?: boolea
   const existing = inFlight.get(key);
   if (existing) return { reply: await existing, live: true };
 
-  const promise = runProvider(request)
+  const promise = runProvider(effective)
     .then((reply) => {
       storeInCache(key, reply);
       return reply;
@@ -125,6 +134,7 @@ function buildCacheKey(request: AiRequest): string {
     request.message.trim(),
     request.mode,
     request.focus?.skill ?? '-',
+    request.systemPrompt ? request.systemPrompt.slice(0, 40) : '-',
     profile.level,
     profile.preferredLanguage,
     profile.weaknesses.join(','),

@@ -10,6 +10,12 @@ export interface ExtendedProfile extends Profile {
   reminder_frequency?: 'daily' | 'weekdays' | 'off';
   learning_goals?: string[] | null;
   xp?: number | null;
+  /** Grants access to the cohort analytics dashboard. */
+  is_admin?: boolean | null;
+  /** Minutes ahead of UTC — the server needs it to time the reminders. */
+  tz_offset_minutes?: number | null;
+  /** The interface language (en | ar). */
+  ui_language?: 'en' | 'ar' | null;
 }
 
 /**

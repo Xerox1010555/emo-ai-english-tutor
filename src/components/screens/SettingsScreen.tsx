@@ -26,6 +26,7 @@ import { useNotifications } from '@/context/NotificationContext';
 import { useTutor } from '@/context/TutorContext';
 import { aiProviders, resolveProvider } from '@/lib/ai/provider';
 import { useI18n } from '@/lib/i18n';
+import type { TabId } from '@/components/Layout';
 import {
   isPushSubscribed,
   pushEnabled,
@@ -45,7 +46,7 @@ const GOAL_SUGGESTIONS = [
   'Understand native speech',
 ];
 
-export function SettingsScreen() {
+export function SettingsScreen({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { settings, updateSettings, permission, requestPermission, supportMessage } =
     useNotifications();
@@ -581,6 +582,24 @@ export function SettingsScreen() {
           </div>
         </Card>
       </div>
+
+      {/* Admin (only for flagged accounts) */}
+      {profile?.is_admin && (
+        <div>
+          <SectionHeader title="Administration" />
+          <Card className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Cohort analytics</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Learners, activity, model cost and the mistakes that repeat
+              </p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={() => onNavigate?.('admin')}>
+              Open
+            </Button>
+          </Card>
+        </div>
+      )}
 
       {/* Language */}
       <div>

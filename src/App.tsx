@@ -14,6 +14,9 @@ import { AppointmentsScreen } from '@/components/screens/AppointmentsScreen';
 import { QuizScreen } from '@/components/screens/QuizScreen';
 import { VocabularyScreen } from '@/components/screens/VocabularyScreen';
 import { WeeklyReportScreen } from '@/components/screens/WeeklyReportScreen';
+import { ExamScreen } from '@/components/screens/ExamScreen';
+import { ScenarioScreen } from '@/components/screens/ScenarioScreen';
+import { AdminScreen } from '@/components/screens/AdminScreen';
 import { SettingsScreen } from '@/components/screens/SettingsScreen';
 import { PageTransition } from '@/components/ui/motion';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -133,7 +136,10 @@ function App() {
           {activeTab === 'appointments' && <AppointmentsScreen />}
           {activeTab === 'vocabulary' && <VocabularyScreen onNavigate={setActiveTab} />}
           {activeTab === 'report' && <WeeklyReportScreen />}
-          {activeTab === 'settings' && <SettingsScreen />}
+          {activeTab === 'exam' && <ExamScreen />}
+          {activeTab === 'scenario' && <ScenarioScreen />}
+          {activeTab === 'admin' && <AdminScreen />}
+          {activeTab === 'settings' && <SettingsScreen onNavigate={setActiveTab} />}
           {activeTab === 'quiz' && <QuizScreen onNavigate={setActiveTab} />}
         </PageTransition>
       </ErrorBoundary>

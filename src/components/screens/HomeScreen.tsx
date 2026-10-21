@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  Award,
   BookMarked,
   BookOpen,
   Brain,
@@ -11,6 +12,7 @@ import {
   Flame,
   GraduationCap,
   MessageCircle,
+  MessagesSquare,
   RefreshCw,
   Sparkles,
   Target,
@@ -422,6 +424,24 @@ export function Home({ onNavigate }: HomeProps) {
               <p className="text-xs text-gray-500 mt-0.5 truncate">
                 Your mistakes, in one session
               </p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('exam')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
+              <Award className="w-[18px] h-[18px] text-accent-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Exam simulator</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">IELTS & TOEFL mocks</p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('scenario')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-success-500/10 flex items-center justify-center">
+              <MessagesSquare className="w-[18px] h-[18px] text-success-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Roleplay</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">Practise a real conversation</p>
             </div>
           </Card>
           <Card hover onClick={() => onNavigate('report')} className="flex flex-col gap-2">

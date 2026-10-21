@@ -16,6 +16,9 @@ export type TabId =
   | 'appointments'
   | 'vocabulary'
   | 'report'
+  | 'exam'
+  | 'scenario'
+  | 'admin'
   | 'settings'
   | 'quiz';
 

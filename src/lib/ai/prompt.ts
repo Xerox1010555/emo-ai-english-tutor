@@ -48,6 +48,8 @@ export interface PromptOptions {
   profile: TutorProfileSnapshot;
   mode: AssistantMode;
   focus?: { skill: Skill; title: string } | null;
+  /** Overrides the default personality prompt entirely. */
+  systemPrompt?: string;
 }
 
 /**
@@ -149,7 +151,11 @@ export function buildSystemPrompt(options: PromptOptions): string {
 /** Serializes the recent conversation into provider-agnostic messages. */
 export function buildMessages(options: PromptOptions): { role: 'system' | 'user' | 'assistant'; content: string }[] {
   const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-    { role: 'system', content: buildSystemPrompt(options) },
+    {
+      role: 'system',
+      // A caller may replace the personality entirely (exam grading, roleplay).
+      content: options.systemPrompt ?? buildSystemPrompt(options),
+    },
   ];
 
   // Trim history to stay inside a sane context budget and limit cost.

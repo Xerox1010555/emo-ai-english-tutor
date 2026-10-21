@@ -38,7 +38,7 @@ interface DueRow {
   ui_language: string;
 }
 
-function json(body: unknown, status: number): Response {
+function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

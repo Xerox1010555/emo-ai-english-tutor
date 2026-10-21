@@ -118,6 +118,22 @@ The mode also changes reminder wording.
 
 ## Features
 
+- **Exam simulator** — timed IELTS Academic and TOEFL iBT mocks with the real
+  section order, the real weighting and the real band conversion (90% = band
+  9, 70% = band 7). Listening plays the audio through speech synthesis,
+  reading carries full passages, writing is graded against the band
+  descriptors by the model (or against an honest local checklist when no model
+  is connected) and speaking is scored on what you actually said. A per-section
+  timer submits the section when it runs out. Quick and full timings.
+- **Roleplay scenarios** — the AI plays the other side: a job interview, a
+  restaurant order, airport check-in, a doctor's appointment, small talk with a
+  neighbour, returning a purchase. The character stays in character and never
+  corrects you; afterwards you get a score, the key phrases you covered and
+  the ones to use next time.
+- **Admin analytics** — a cohort dashboard (admins only): learners, activity,
+  the mistakes that repeat across everyone, level distribution, an estimated
+  model cost, and a CSV export. The endpoint verifies the caller's token AND
+  the `is_admin` flag on their profile.
 - **Adaptive placement test** — a computerised adaptive test (CAT-style): the
   next question is chosen from a live ability estimate, the test stops as soon
   as that estimate settles, and all six skills are measured. The learner sees

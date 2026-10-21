@@ -25,6 +25,15 @@ import {
 } from '../src/lib/learning/placement';
 import { speakingAttemptPassed, scoreSpeaking } from '../src/lib/learning/speech';
 import { buildReviewQueue, reviewXp, xpLevel } from '../src/lib/learning/review';
+import { EXAMS, cefrForBand, localWritingCheck, scoreExam } from '../src/lib/learning/exams';
+import { SCENARIOS, scoreScenario } from '../src/lib/learning/scenarios';
+import {
+  EXAMS,
+  cefrForBand,
+  localWritingCheck,
+  scoreExam,
+} from '../src/lib/learning/exams';
+import { SCENARIOS, scoreScenario } from '../src/lib/learning/scenarios';
 import {
   buildDailyActivity,
   buildWeeklyComparison,
@@ -775,6 +784,139 @@ check(
 );
 check('the top level has no next step', xpLevel(99999).next === null);
 check('a level reports the XP still needed', xpLevel(250).toNext === 250);
+
+// -------------------------------------------------- regression: exam engine ----
+section('Exam simulator');
+
+const ielts = EXAMS.ielts;
+const toefl = EXAMS.toefl;
+
+check('both exams are defined', Boolean(ielts && toefl));
+check('every exam has the four sections', [ielts, toefl].every((e) => e.sections.length === 4));
+check(
+  'every exam section has a time budget',
+  [ielts, toefl].every((e) => e.sections.every((s) => s.minutes.full > 0 && s.minutes.quick > 0)),
+);
+check(
+  'every multiple-choice question has an explanation',
+  [ielts, toefl].every((e) =>
+    e.sections.every((s) => (s.questions ?? []).every((q) => q.explanation.length > 20)),
+  ),
+);
+check(
+  'every question answer index is in range',
+  [ielts, toefl].every((e) =>
+    e.sections.every((s) =>
+      (s.questions ?? []).every((q) => q.correct >= 0 && q.correct < q.options.length),
+    ),
+  ),
+);
+check(
+  'every exam has at least one writing task',
+  [ielts, toefl].every((e) => e.sections.some((s) => (s.writing ?? []).length > 0)),
+);
+check(
+  'every exam has at least one speaking task',
+  [ielts, toefl].every((e) => e.sections.some((s) => (s.speaking ?? []).length > 0)),
+);
+check(
+  'every listening question has something to play',
+  [ielts, toefl].every((e) =>
+    e.sections
+      .filter((s) => s.id === 'listening')
+      .every((s) => (s.questions ?? []).every((q) => (q.spoken ?? '').length > 20)),
+  ),
+);
+check(
+  'every reading question has its passage',
+  [ielts, toefl].every((e) =>
+    e.sections
+      .filter((s) => s.id === 'reading')
+      .every((s) => (s.questions ?? []).every((q) => (q.passage ?? '').length > 40)),
+  ),
+);
+
+// Band mapping follows the standard Academic conversion.
+check('a perfect score is band 9', ielts.bandFor(100) === '9');
+check('90% is band 9', ielts.bandFor(90) === '9');
+check('70% is band 7', ielts.bandFor(70) === '7');
+check('72% is band 7', ielts.bandFor(72) === '7');
+check('80% is band 8', ielts.bandFor(80) === '8');
+check('50% is band 5', ielts.bandFor(50) === '5');
+check('a zero score is band 0', ielts.bandFor(0) === '0');
+check('TOEFL 100% is 120 points', toefl.bandFor(100) === '120');
+check('TOEFL 50% is 60 points', toefl.bandFor(50) === '60');
+
+// Weighted scoring.
+const perfectOutcomes = ielts.sections.map((s) => ({
+  section: s.id,
+  title: s.title,
+  skill: s.skill,
+  correct: 10,
+  total: 10,
+  percentage: 100,
+  notes: [],
+}));
+check('four perfect sections give band 9', scoreExam(ielts, perfectOutcomes).total === '9');
+
+const halfOutcomes = perfectOutcomes.map((o) => ({ ...o, percentage: 50 }));
+check('four half sections give band 5', scoreExam(ielts, halfOutcomes).total === '5');
+
+// CEFR mapping of a mock result.
+check('band 7 is C1', cefrForBand('7', 'band') === 'C1');
+check('band 5 is B1', cefrForBand('5', 'band') === 'B1');
+check('TOEFL 95 is C1', cefrForBand('95', 'score') === 'C1');
+
+// The local writing rubric.
+const ieltsWriting = ielts.sections.find((s) => s.writing)!.writing![0];
+const goodEssay =
+  'I believe online learning is better for motivated adults who already have a clear goal. ' +
+  'However, a classroom offers something an app cannot: structure and human correction. ' +
+  'Because a teacher corrects your mistakes in the moment, you stop repeating them, which is ' +
+  'the single biggest reason learners plateau. Although paid courses cost more than a monthly ' +
+  'subscription, the support is often worth it for people who struggle with motivation. ' +
+  'In my opinion, the best choice depends on the learner rather than the method. ' +
+  'Therefore, I would recommend a mixed approach: an app for daily practice and a classroom ' +
+  'for the feedback that no software can yet replace.';
+const localCheck = localWritingCheck(goodEssay, ieltsWriting);
+check('a good essay scores well locally', localCheck.percentage >= 70, String(localCheck.percentage));
+check('the local check explains itself', localCheck.notes.length >= 3);
+const shortEssay = localWritingCheck('I agree.', ieltsWriting);
+check('a one-line essay scores low', shortEssay.percentage < 40, String(shortEssay.percentage));
+
+// ---------------------------------------------- regression: roleplay scoring ----
+section('Roleplay scenarios');
+
+check('the scenario catalogue is not empty', SCENARIOS.length >= 5, String(SCENARIOS.length));
+check(
+  'every scenario has an opening line',
+  SCENARIOS.every((s) => s.opening.length > 10),
+);
+check(
+  'every scenario has key phrases and pitfalls',
+  SCENARIOS.every((s) => s.keyPhrases.length >= 3 && s.pitfalls.length >= 2),
+);
+check(
+  'every scenario keeps the character in the prompt',
+  SCENARIOS.every((s) => s.systemPrompt.includes('Stay in character')),
+);
+
+const interview = SCENARIOS.find((s) => s.id === 'job-interview')!;
+const goodTalk = scoreScenario(
+  interview,
+  'I have three years of experience in customer support. What drew me to this role was the chance to help people directly. One thing I am proud of is a difficult refund I handled calmly. Could you tell me how the team handles escalations?',
+);
+check(
+  'a full answer covers the key phrases',
+  goodTalk.covered.length >= 2,
+  goodTalk.covered.length.toString(),
+);
+check('a full answer scores well', goodTalk.percentage >= 50, String(goodTalk.percentage));
+check('the score counts the words', goodTalk.words > 20, String(goodTalk.words));
+
+const emptyTalk = scoreScenario(interview, '');
+check('saying nothing scores zero', emptyTalk.percentage === 0, String(emptyTalk.percentage));
+check('saying nothing covers nothing', emptyTalk.covered.length === 0);
 
 // --------------------------------------------------------------- summary ----
 console.log(`\n${'-'.repeat(46)}`);
