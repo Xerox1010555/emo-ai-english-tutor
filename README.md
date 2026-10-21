@@ -118,6 +118,14 @@ The mode also changes reminder wording.
 
 ## Features
 
+- **Hourly drill** — a five-minute micro-point that rotates every hour
+  (grammar, vocabulary, a natural phrase, a listening line, a better
+  sentence). Deterministic per learner and hour: it is stable while you are in
+  it and different next hour, with no model call and no waiting.
+- **Weekly league and challenges** — three challenges a week tied to real
+  habits (lessons, quests, review sessions, words mastered) with XP rewards
+  claimed atomically, a weekly league tier from Bronze to Diamond, and a
+  streak freeze that costs XP instead of silently forgiving a missed day.
 - **Exam simulator** — timed IELTS Academic and TOEFL iBT mocks with the real
   section order, the real weighting and the real band conversion (90% = band
   9, 70% = band 7). Listening plays the audio through speech synthesis,
