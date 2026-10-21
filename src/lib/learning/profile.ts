@@ -46,7 +46,7 @@ export async function buildTutorProfileSnapshot(
 
   const [placementRes, quizRes, lessonRes, questRes, mistakeRes, vocabRes] = await Promise.all([
     safeFetch(() => supabase.from('placement_results').select('skill, score').eq('user_id', userId)),
-    safeFetch(() => supabase.from('quiz_results').select('score, total, taken_at, quiz_type').eq('user_id', userId)),
+    safeFetch(() => supabase.from('quiz_results').select('score, total, taken_at, quiz_type, skill').eq('user_id', userId)),
     safeFetch(() => supabase.from('daily_lessons').select('skill, completed, duration_minutes').eq('user_id', userId)),
     safeFetch(() => supabase.from('daily_quests').select('xp_reward, completed_at').eq('user_id', userId)),
     safeFetch(() => supabase.from('recurring_mistakes').select('label, category, occurrences, last_seen').eq('user_id', userId).order('occurrences', { ascending: false }).limit(6)),
@@ -129,8 +129,15 @@ function computeSkillProgress(
     const total = Number(row.total) || 0;
     const score = Number(row.score) || 0;
     if (total <= 0) continue;
-    // Quizzes are mixed-skill; attribute the result across all skills.
-    for (const skill of SKILLS) add(skill, (score / total) * 100, 100);
+    // A quiz measures ONE skill. Spreading the score across every skill
+    // made every learner's profile look flat and hid real strengths.
+    const skill = typeof row.skill === 'string' ? (row.skill as Skill) : null;
+    if (skill && SKILLS.includes(skill)) {
+      add(skill, (score / total) * 100, 100);
+    } else {
+      // Older rows have no skill: fall back to a mixed measurement.
+      for (const s of SKILLS) add(s, (score / total) * 100, 100);
+    }
   }
 
   for (const row of lessons) {

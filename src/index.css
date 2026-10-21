@@ -67,6 +67,74 @@
 
 @layer components {
   /* ---------------------------------------------------------------------
+     Depth: 3D layers
+     Real depth comes from stacking several surfaces in Z and lighting them
+     from above, not from a single heavy shadow. `.depth-*` gives a card a
+     real stack (surface, edge, cast shadow, contact shadow) and
+     `.scene` establishes the perspective the whole app lives in.
+     --------------------------------------------------------------------- */
+  .scene {
+    perspective: 1400px;
+    perspective-origin: 50% -10%;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .depth-1 {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+      0 2px 4px -2px rgba(0, 0, 0, 0.45),
+      0 10px 22px -12px rgba(0, 0, 0, 0.65);
+  }
+
+  .depth-2 {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+      0 2px 6px -2px rgba(0, 0, 0, 0.5),
+      0 18px 36px -18px rgba(0, 0, 0, 0.7),
+      0 44px 80px -48px rgba(0, 0, 0, 0.8);
+  }
+
+  .depth-3 {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+      0 3px 8px -3px rgba(0, 0, 0, 0.55),
+      0 26px 50px -22px rgba(0, 0, 0, 0.75),
+      0 70px 120px -60px rgba(0, 0, 0, 0.9);
+  }
+
+  /* A tilted surface catches a moving highlight. */
+  .glare {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    background: radial-gradient(
+      420px circle at var(--glare-x, 50%) var(--glare-y, 50%),
+      rgba(255, 255, 255, 0.16),
+      transparent 62%
+    );
+  }
+  .group:hover .glare {
+    opacity: 1;
+  }
+
+  /* Chunky 3D lettering for the big moments. */
+  .text-3d {
+    text-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.14),
+      0 2px 0 rgba(255, 255, 255, 0.06),
+      0 6px 12px rgba(0, 0, 0, 0.55);
+  }
+
+  /* ---------------------------------------------------------------------
      Glass surfaces
      A premium glass panel is not a translucent rectangle: it is a stack of
      layers — a tinted gradient body, a blurred backdrop, a hairline gradient

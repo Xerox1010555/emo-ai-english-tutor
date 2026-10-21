@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Home, Calendar, MessageCircle, ChartLine, Map, Target, Settings } from 'lucide-react';
+import { Home, Calendar, MessageCircle, ChartLine, Map, Target, Settings, RefreshCw } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { springSnappy } from './ui/motionTokens';
 import { MeshBackground } from './ui/MeshBackground';
@@ -10,6 +10,7 @@ export type TabId =
   | 'home'
   | 'roadmap'
   | 'quests'
+  | 'review'
   | 'chat'
   | 'progress'
   | 'appointments'
@@ -25,7 +26,15 @@ interface Tab {
 }
 
 /** Tabs reachable from the bottom bar; the rest are pushed programmatically. */
-const primaryTabs = new Set<TabId>(['home', 'roadmap', 'quests', 'chat', 'progress', 'settings']);
+const primaryTabs = new Set<TabId>([
+  'home',
+  'roadmap',
+  'quests',
+  'review',
+  'chat',
+  'progress',
+  'settings',
+]);
 
 const layoutId = 'tab-indicator';
 
@@ -41,6 +50,7 @@ export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
     { id: 'home', label: t('nav.home'), icon: Home },
     { id: 'roadmap', label: t('nav.roadmap'), icon: Map },
     { id: 'quests', label: t('nav.quests'), icon: Target },
+    { id: 'review', label: t('nav.review'), icon: RefreshCw },
     { id: 'chat', label: t('nav.chat'), icon: MessageCircle },
     { id: 'progress', label: t('nav.progress'), icon: ChartLine },
     { id: 'appointments', label: t('nav.schedule'), icon: Calendar },

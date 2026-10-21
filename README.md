@@ -118,11 +118,19 @@ The mode also changes reminder wording.
 
 ## Features
 
-- **Onboarding** — a placement test that measures all six skills: grammar,
-  vocabulary, reading (multiple choice), listening (the app speaks the
-  sentence), speaking (the app listens and compares your transcript), and
-  writing (your answer is checked). The level rule is monotonic: a learner
-  cannot be placed above a level they failed.
+- **Adaptive placement test** — a computerised adaptive test (CAT-style): the
+  next question is chosen from a live ability estimate, the test stops as soon
+  as that estimate settles, and all six skills are measured. The learner sees
+  their band update in real time ("you sit between B1 and B2"). The bank
+  mixes multiple choice, listening (the app speaks), speaking (the app
+  listens) and writing.
+- **Smart review queue** — the session that makes this more than a streak
+  app: it mixes the mistakes the tutor keeps flagging, the vocabulary cards
+  that are due, and a fresh question from the weakest skill, interleaved so
+  it never becomes a grammar drill.
+- **Speaking feedback at word level** — the transcript is compared with the
+  target word by word, so the learner sees exactly which word was missed,
+  said differently, or added — plus a score and a verdict.
 - **Daily lesson** — written for the learner's level and weak skills. With
   `content-gen` deployed it is generated per learner; otherwise it comes from
   the curated bank, deterministically per day, and never from a level the
@@ -135,7 +143,10 @@ The mode also changes reminder wording.
 - **Vocabulary studio** — Leitner spaced repetition (boxes 0–5, 1→30 day
   intervals). Words come from lessons, or you add them yourself.
 - **Quizzes** — level-appropriate multiple choice and fill-in-the-blank, with
-  a neighbouring-level fallback so no learner ever gets an empty quiz.
+  a neighbouring-level fallback so no learner ever gets an empty quiz. Every
+  attempt records the skill it measured.
+- **XP levels** — ten named levels from Newcomer to Native-like, with visible
+  progress towards the next one.
 - **Progress** — per-skill breakdown, recurring mistakes, quiz trend, weekly
   activity, XP, level history, and a conservative level check that never
   promotes anyone silently.
@@ -143,7 +154,8 @@ The mode also changes reminder wording.
   Arabic) and reminders that actually fire.
 - **Reminders** — a scheduler that runs on an interval, respects quiet hours
   and the weekly frequency, and never repeats a notification. With Web Push
-  configured they arrive even when the app is closed.
+  configured they arrive even when the app is closed — at the learner's own
+  local hour.
 - **Weekly report** — this week against last week (lessons, quests, XP, quiz
   accuracy, active days, chat turns, words mastered), the skill that moved and
   the skill to protect, plus an optional AI narrative that may only narrate the
@@ -151,6 +163,17 @@ The mode also changes reminder wording.
 - **Installable** — a PWA (manifest, icons, service worker, offline shell).
 - **Two languages** — the interface itself is available in English and Arabic
   with a full RTL layout; the tutor's own Arabic support is a separate setting.
+
+## The look
+
+The interface is built as layered glass rather than flat translucent boxes: a
+tinted gradient body, a blurred and saturated backdrop, a gradient hairline
+border, an inset specular highlight along the top edge, and a coloured ambient
+shadow underneath. Cards tilt in 3D towards the pointer, with a moving
+specular highlight that follows the light, and the whole app sits in a
+perspective scene over a slowly drifting mesh background with film grain on
+top. Everything is transform/opacity only, and `prefers-reduced-motion` turns
+it all off.
 
 ## Architecture
 

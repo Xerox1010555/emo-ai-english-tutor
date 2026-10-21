@@ -7,6 +7,7 @@ import { Layout, type TabId } from '@/components/Layout';
 import { Home } from '@/components/screens/HomeScreen';
 import { RoadmapScreen } from '@/components/screens/RoadmapScreen';
 import { QuestsScreen } from '@/components/screens/QuestsScreen';
+import { ReviewScreen } from '@/components/screens/ReviewScreen';
 import { ChatScreen } from '@/components/screens/ChatScreen';
 import { ProgressScreen } from '@/components/screens/ProgressScreen';
 import { AppointmentsScreen } from '@/components/screens/AppointmentsScreen';
@@ -34,7 +35,7 @@ function LoadingScreen({ label = 'Loading...' }: { label?: string }) {
 }
 
 function App() {
-  const { user, profile, loading, profileError, refreshProfile } = useAuth();
+  const { user, profile, loading, profileLoading, profileError, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [submittingPlacement, setSubmittingPlacement] = useState(false);
 
@@ -84,9 +85,11 @@ function App() {
   if (loading) return <LoadingScreen />;
   if (!user) return <AuthScreen />;
 
-  // A missing profile must not become an endless spinner: say what happened
-  // and offer a way out.
+  // A missing profile must not become an endless spinner — and it must not
+  // become an error either while it is still on its way. Only a finished
+  // attempt that failed counts as an error.
   if (!profile) {
+    if (loading || profileLoading) return <LoadingScreen />;
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink-950 px-6">
         <div className="glass rounded-2xl p-6 text-center space-y-4 max-w-sm w-full">
@@ -124,6 +127,7 @@ function App() {
           {activeTab === 'home' && <Home onNavigate={setActiveTab} />}
           {activeTab === 'roadmap' && <RoadmapScreen onNavigate={setActiveTab} />}
           {activeTab === 'quests' && <QuestsScreen onNavigate={setActiveTab} />}
+          {activeTab === 'review' && <ReviewScreen />}
           {activeTab === 'chat' && <ChatScreen />}
           {activeTab === 'progress' && <ProgressScreen onNavigate={setActiveTab} />}
           {activeTab === 'appointments' && <AppointmentsScreen />}

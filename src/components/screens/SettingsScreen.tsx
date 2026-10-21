@@ -66,8 +66,7 @@ export function SettingsScreen() {
     'Turn on background reminders to get nudges with the app closed.',
   );
 
-  const { language: uiLanguage, setLanguage: setUiLanguage } = useI18n();
-  const { t } = useI18n();
+  const { language: uiLanguage, setLanguage: setUiLanguage, t } = useI18n();
 
   // Is this device already subscribed to push?
   useEffect(() => {

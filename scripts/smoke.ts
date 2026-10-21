@@ -12,8 +12,19 @@ import { generateTutorResponse } from '../src/lib/tutorEngine';
 import { buildTutorProfileSnapshot, todayKey } from '../src/lib/learning/profile';
 import { getQuizSet, quizBank } from '../src/lib/quizData';
 import { parseNaturalDate } from '../src/lib/dateParser';
-import { determinePlacementLevel } from '../src/lib/placementData';
-import { speakingAttemptPassed } from '../src/lib/learning/speech';
+import { placementBank } from '../src/lib/placementData';
+import {
+  abilityBand,
+  chooseNextItem,
+  determinePlacementLevel,
+  levelForAbility,
+  summarise,
+  targetItemCount,
+  updateAbility,
+  type PlacementAnswer,
+} from '../src/lib/learning/placement';
+import { speakingAttemptPassed, scoreSpeaking } from '../src/lib/learning/speech';
+import { buildReviewQueue, reviewXp, xpLevel } from '../src/lib/learning/review';
 import {
   buildDailyActivity,
   buildWeeklyComparison,
@@ -582,6 +593,188 @@ check(
   'the day key is the local calendar day',
   dayKey(new Date(2026, 0, 15, 23, 30)) === '2026-01-15',
 );
+
+// --------------------------------------------- regression: adaptive placement ----
+section('Adaptive placement engine');
+
+const bank = placementBank;
+const itemAt = (id: string) => bank.find((b) => b.id === id)!;
+
+check(
+  'the bank covers every level',
+  ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].every((lvl) => bank.some((b) => b.level === lvl)),
+);
+check(
+  'the bank covers every skill',
+  SKILLS_ALL.every((skill) => bank.some((b) => b.skill === skill)),
+);
+check('the bank is wide enough to adapt', bank.length >= 40, `got ${bank.length}`);
+
+// A strong learner should be pushed up, not left on easy items.
+// The loop mirrors the real test: stop when the estimate settles or the
+// budget for this performance is spent.
+let strongAnswers: PlacementAnswer[] = [];
+let strongAbility = 0;
+let guard = 0;
+while (guard < 30) {
+  guard += 1;
+  const next = chooseNextItem(bank, strongAnswers, strongAbility);
+  if (!next) break;
+  strongAnswers = [...strongAnswers, { item: next, correct: true }];
+  strongAbility = updateAbility(strongAbility, strongAnswers, next, true);
+  const outcome = summarise(strongAnswers, strongAbility);
+  const budget = targetItemCount(
+    strongAnswers.length,
+    strongAnswers.filter((a) => a.correct).length,
+  );
+  if (outcome.settled || strongAnswers.length >= budget) break;
+}
+check(
+  'a strong learner reaches a high level',
+  levelForAbility(strongAbility) === 'C1' || levelForAbility(strongAbility) === 'C2',
+  levelForAbility(strongAbility),
+);
+check(
+  'a strong learner finishes quickly',
+  strongAnswers.length <= 14,
+  `${strongAnswers.length} items`,
+);
+
+// A weak learner should be pushed DOWN and confirmed.
+let weakAnswers: PlacementAnswer[] = [];
+let weakAbility = 0;
+guard = 0;
+while (guard < 30) {
+  guard += 1;
+  const next = chooseNextItem(bank, weakAnswers, weakAbility);
+  if (!next) break;
+  weakAnswers = [...weakAnswers, { item: next, correct: false }];
+  weakAbility = updateAbility(weakAbility, weakAnswers, next, false);
+  const outcome = summarise(weakAnswers, weakAbility);
+  const budget = targetItemCount(
+    weakAnswers.length,
+    weakAnswers.filter((a) => a.correct).length,
+  );
+  if (outcome.settled || weakAnswers.length >= budget) break;
+}
+check(
+  'a weak learner is placed low',
+  levelForAbility(weakAbility) === 'A1' || levelForAbility(weakAbility) === 'A2',
+  levelForAbility(weakAbility),
+);
+check(
+  'a weak learner gets more questions to confirm',
+  weakAnswers.length >= strongAnswers.length,
+  `${weakAnswers.length} vs ${strongAnswers.length}`,
+);
+
+// The engine must measure every skill before it stops.
+const skillsSeen = new Set(strongAnswers.map((a) => a.item.skill));
+check(
+  'the test measures all six skills',
+  SKILLS_ALL.every((skill) => skillsSeen.has(skill)),
+  [...skillsSeen].join(', '),
+);
+
+// The next item must be close to the current estimate.
+const probe = chooseNextItem(bank, [{ item: itemAt('a1_g1'), correct: false }], -2.8);
+check(
+  'the next item tracks the estimate',
+  probe !== null && Math.abs(probe.ability - -2.8) <= 1.5,
+  probe ? `${probe.level} (${probe.ability})` : 'none',
+);
+
+// An untried skill is preferred over another item at the same level.
+const withOneAnswer: PlacementAnswer[] = [{ item: itemAt('a1_g1'), correct: true }];
+const preferred = chooseNextItem(bank, withOneAnswer, -3);
+check(
+  'an untried skill comes first',
+  preferred !== null && preferred.skill !== 'Grammar',
+  preferred?.skill,
+);
+
+// Summary maths.
+const summary = summarise(strongAnswers, strongAbility);
+check('the summary reports the level', summary.level === levelForAbility(strongAbility));
+check('the summary reports every measured skill', Object.keys(summary.skillScores).length === 6);
+check('the summary has a confidence value', summary.confidence > 0 && summary.confidence <= 1);
+check('the ability band brackets the level', abilityBand(strongAbility).low !== undefined);
+
+// Item budget adapts to performance.
+check('a perfect run keeps the budget short', targetItemCount(10, 10) === 12);
+check('a struggling run gets more items', targetItemCount(10, 4) === 16);
+
+// Speaking scores are per word.
+const scored = scoreSpeaking('My name is Sara and I live in Cairo', 'my name is sara and i live in cairo');
+check('a perfect utterance scores 100', scored.score === 100, String(scored.score));
+const partial = scoreSpeaking('My name is Sara and I live in Cairo', 'my name is sara i live in cairo');
+check('a missing word lowers the score', partial.score < 100 && partial.score > 0, String(partial.score));
+check('the missing word is named', partial.missed.length === 1, partial.missed.join(','));
+const noisy = scoreSpeaking('My name is Sara and I live in Cairo', 'the weather is nice today');
+check('an unrelated answer scores low', noisy.score < 30, String(noisy.score));
+
+// ------------------------------------------------ regression: review queue ----
+section('Smart review queue');
+
+const reviewQueue = buildReviewQueue({
+  mistakes: [
+    { label: 'I am agree', category: 'grammar', occurrences: 4 },
+    { label: 'discuss about', category: 'prepositions', occurrences: 2 },
+  ],
+  vocabulary: [
+    {
+      id: 'v1',
+      user_id: 'u',
+      word: 'resilient',
+      definition: 'able to recover',
+      example: 'a resilient team',
+      box: 1,
+      next_review: '2026-10-21',
+      mastered: false,
+      created_at: '2026-10-20T00:00:00Z',
+    },
+  ],
+  weakSkills: ['Grammar', 'Reading'],
+  level: 'B1',
+  limit: 6,
+});
+
+check('the review queue has items', reviewQueue.length > 0, String(reviewQueue.length));
+check('the review queue respects the limit', reviewQueue.length <= 6);
+check(
+  'the most frequent mistake comes first',
+  reviewQueue[0].kind === 'mistake' && reviewQueue[0].occurrences === 4,
+  reviewQueue[0].kind,
+);
+check(
+  'the queue mixes the three kinds',
+  new Set(reviewQueue.map((i) => i.kind)).size >= 2,
+  [...new Set(reviewQueue.map((i) => i.kind))].join(','),
+);
+check(
+  'the queue is not three of the same kind in a row',
+  reviewQueue.every((item, i) => {
+    if (i < 2) return true;
+    return !(item.kind === reviewQueue[i - 1].kind && item.kind === reviewQueue[i - 2].kind);
+  }),
+);
+check(
+  'a question is picked for a weak skill',
+  reviewQueue.some((i) => i.kind === 'question' && i.skill === 'Grammar'),
+);
+
+check('a wrong review earns no XP', reviewXp(reviewQueue[0], false) === 0);
+check('a correct review earns XP', reviewXp(reviewQueue[0], true) > 0);
+
+// XP levels.
+check('zero XP is level 1', xpLevel(0).current.level === 1);
+check('250 XP is the Explorer level', xpLevel(250).current.title === 'Explorer');
+check(
+  'the level progress is a percentage',
+  xpLevel(250).progress >= 0 && xpLevel(250).progress <= 100,
+);
+check('the top level has no next step', xpLevel(99999).next === null);
+check('a level reports the XP still needed', xpLevel(250).toNext === 250);
 
 // --------------------------------------------------------------- summary ----
 console.log(`\n${'-'.repeat(46)}`);

@@ -11,6 +11,7 @@ import {
   Flame,
   GraduationCap,
   MessageCircle,
+  RefreshCw,
   Sparkles,
   Target,
   TrendingUp,
@@ -173,7 +174,7 @@ export function Home({ onNavigate }: HomeProps) {
 
       {/* Hero: today + streak + stage */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.34, ease: EASE }}>
-        <Card hairline className="relative overflow-hidden shadow-glass-lg">
+        <Card hairline depth={3} tilt className="relative overflow-hidden shadow-glass-lg">
           <div className="aurora opacity-80" />
           <div className="noise-overlay" />
           <div className="relative flex items-center gap-5">
@@ -409,6 +410,17 @@ export function Home({ onNavigate }: HomeProps) {
               <p className="text-sm font-semibold text-white">{t('home.action.vocabulary')}</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">
                 {vocabDue > 0 ? `${vocabDue} due for review` : 'Your word deck'}
+              </p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('review')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
+              <RefreshCw className="w-[18px] h-[18px] text-accent-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Review</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
+                Your mistakes, in one session
               </p>
             </div>
           </Card>

@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { springSnappy } from './motionTokens';
+import { TiltCard } from './TiltCard';
 
 interface CardProps {
   children: ReactNode;
@@ -12,6 +13,13 @@ interface CardProps {
    * for hero and highlight cards.
    */
   hairline?: boolean;
+  /**
+   * Tilts the panel in 3D towards the pointer. Slightly more expensive, so it
+   * is opt-in for the panels that deserve it.
+   */
+  tilt?: boolean;
+  /** Depth of the stacked shadow: 1 (subtle) → 3 (dramatic). */
+  depth?: 1 | 2 | 3;
 }
 
 /**
@@ -27,6 +35,8 @@ export function Card({
   onClick,
   hover = false,
   hairline = false,
+  tilt = false,
+  depth = 2,
 }: CardProps) {
   const interactive = Boolean(onClick) || hover;
 
@@ -34,8 +44,33 @@ export function Card({
     ? 'glass-hairline rounded-2xl p-5 shadow-glass relative overflow-hidden'
     : 'glass-panel rounded-2xl p-5 relative overflow-hidden';
 
+  const depthClass = `depth-${depth}`;
+
+  const inner = (
+    <>
+      {children}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/[0.05] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+      />
+    </>
+  );
+
+  // The tilt comes BEFORE the "not interactive" shortcut: a hero card does
+  // not need a click handler to deserve the 3D treatment.
+  if (tilt) {
+    return (
+      <TiltCard
+        onClick={onClick}
+        className={`${base} ${depthClass} sheen w-full hover:border-white/[0.12] focus-visible:ring-2 focus-visible:ring-primary-500/60 ${className}`}
+      >
+        {inner}
+      </TiltCard>
+    );
+  }
+
   if (!interactive) {
-    return <div className={`${base} ${className}`}>{children}</div>;
+    return <div className={`${base} ${depthClass} ${className}`}>{children}</div>;
   }
 
   return (
@@ -45,9 +80,9 @@ export function Card({
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.985 }}
       transition={springSnappy}
-      className={`${base} sheen text-left w-full hover:border-white/[0.12] focus-visible:ring-2 focus-visible:ring-primary-500/60 ${className}`}
+      className={`${base} ${depthClass} sheen text-left w-full hover:border-white/[0.12] focus-visible:ring-2 focus-visible:ring-primary-500/60 ${className}`}
     >
-      {children}
+      {inner}
     </motion.button>
   );
 }

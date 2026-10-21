@@ -22,6 +22,10 @@ Additive and idempotent.
 -- ---------------------------------------------------------------------------
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ui_language text NOT NULL DEFAULT 'en';
 
+-- A quiz measures one skill; recording which one keeps the skill profile
+-- honest (before this, every quiz counted towards every skill).
+ALTER TABLE quiz_results ADD COLUMN IF NOT EXISTS skill text;
+
 -- Minutes AHEAD of UTC (180 for UTC+3). The client sends it so the database
 -- can work out each learner's LOCAL time without any client running — the
 -- reminder time is stored in the learner's own clock, so comparing it with

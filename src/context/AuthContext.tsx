@@ -10,6 +10,8 @@ interface AuthContextValue {
   session: Session | null;
   profile: ExtendedProfile | null;
   loading: boolean;
+  /** True while the profile is being fetched — the app waits, it does not error. */
+  profileLoading: boolean;
   /** Set when the profile could not be loaded or created. */
   profileError: string | null;
   signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>;
@@ -26,8 +28,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ExtendedProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   async function loadProfile(userId: string) {
+    setProfileLoading(true);
+    try {
+      await loadProfileInner(userId);
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  async function loadProfileInner(userId: string) {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -122,7 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
 
       // The database work is DEFERRED out of the auth callback on purpose.
       //
@@ -135,9 +146,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.setTimeout(() => {
         if (!mounted) return;
         if (session?.user) {
-          void loadProfile(session.user.id).then(() => syncTimezone(session!.user.id));
+          // The app stays in its loading state until the profile has actually
+          // arrived — ending it earlier would flash a "could not load your
+          // profile" screen at every sign-in.
+          void loadProfile(session!.user.id)
+            .then(() => syncTimezone(session!.user.id))
+            .finally(() => mounted && setLoading(false));
         } else {
           setProfile(null);
+          setProfileError(null);
+          setLoading(false);
         }
       }, 0);
     });
@@ -189,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         loading,
+        profileLoading,
         profileError,
         signUp,
         signIn,

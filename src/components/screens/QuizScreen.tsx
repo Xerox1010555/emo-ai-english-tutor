@@ -8,6 +8,23 @@ import { Check, X, Trophy, RotateCcw, ChevronRight, Brain, Home } from 'lucide-r
 import type { CEFRLevel } from '@/lib/types';
 import type { TabId } from '@/components/Layout';
 
+/** The skill a quiz attempt mostly measured — used to score the profile. */
+function dominantSkill(quiz: QuizQuestion[]): string {
+  const counts = new Map<string, number>();
+  for (const question of quiz) {
+    counts.set(question.skill, (counts.get(question.skill) ?? 0) + 1);
+  }
+  let best = 'Grammar';
+  let bestCount = 0;
+  for (const [skill, count] of counts) {
+    if (count > bestCount) {
+      best = skill;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 export function QuizScreen({ onNavigate }: { onNavigate?: (tab: TabId) => void }) {
   const { profile, user } = useAuth();
   const [quiz, setQuiz] = useState<QuizQuestion[] | null>(null);
@@ -73,6 +90,8 @@ export function QuizScreen({ onNavigate }: { onNavigate?: (tab: TabId) => void }
           quiz_type: 'mixed',
           score,
           total: quiz.length,
+          // Which skill this attempt measured — the tutor scores per skill.
+          skill: dominantSkill(quiz),
         });
         if (error) {
           setSaveError('Your result could not be saved. It will not appear in your history.');

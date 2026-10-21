@@ -8,10 +8,12 @@
 export function MeshBackground({ className = '' }: { className?: string }) {
   return (
     <div className={`fixed inset-0 -z-10 overflow-hidden pointer-events-none ${className}`} aria-hidden>
-      <div className="mesh-field">
-        <span />
-        <span />
-        <span />
+      <div className="scene absolute inset-0">
+        <div className="mesh-field">
+          <span />
+          <span />
+          <span />
+        </div>
       </div>
       <div className="noise-overlay" />
       {/* A soft vignette pulls focus to the middle of the screen. */}
