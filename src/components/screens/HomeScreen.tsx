@@ -17,6 +17,8 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Trophy,
+  Volume2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
@@ -27,6 +29,7 @@ import { buildRoadmap, currentStage } from '@/lib/learning/roadmap';
 import { todayKey } from '@/lib/learning/profile';
 import { useDailyQuests } from '@/lib/learning/useDailyQuests';
 import { loadDueVocab } from '@/lib/learning/vocab';
+import { drillForSlot } from '@/lib/learning/hourlyDrill';
 import { useI18n } from '@/lib/i18n';
 import type { ConversationMessage, DailyLesson } from '@/lib/types';
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -50,6 +53,36 @@ export function Home({ onNavigate }: HomeProps) {
   const [todayLesson, setTodayLesson] = useState<DailyLesson | null>(null);
   const [lessonError, setLessonError] = useState(false);
   const [vocabDue, setVocabDue] = useState(0);
+  // The hourly drill: one micro-point per hour, deterministic per learner.
+  const [drillHour] = useState(() => new Date().getHours());
+  const drill = useMemo(
+    () => drillForSlot(user?.id ?? 'anonymous', new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.id, drillHour],
+  );
+  const [drillChoice, setDrillChoice] = useState<number | null>(null);
+  const [drillChoiceCorrect, setDrillChoiceCorrect] = useState(false);
+
+  useEffect(() => {
+    setDrillChoice(null);
+  }, [drill.id]);
+
+  async function answerDrill(choice: number) {
+    if (!drill.options || drillChoice !== null) return;
+    const correct = choice === drill.correct;
+    setDrillChoice(choice);
+    setDrillChoiceCorrect(correct);
+
+    if (correct && user) {
+      // The XP is added by the atomic ledger function; the drill is the
+      // learner's smallest unit of work.
+      const { error } = await supabase.rpc('award_xp', {
+        p_amount: drill.xp,
+        p_source: 'drill',
+      });
+      if (!error) await refreshProfile();
+    }
+  }
   const [lastMessage, setLastMessage] = useState<ConversationMessage | null>(null);
   const [lastSessionAt, setLastSessionAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -267,6 +300,68 @@ export function Home({ onNavigate }: HomeProps) {
         </Card>
       </motion.div>
 
+      {/* This hour's drill */}
+      {drill && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.34, ease: EASE, delay: 0.08 }}
+        >
+          <SectionHeader title="This hour's drill" />
+          <Card hairline depth={2} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Pill tone="primary">{drill.skill}</Pill>
+              <span className="text-[11px] text-gray-500">{drill.title}</span>
+              <span className="text-[11px] text-primary-300 font-semibold ml-auto">
+                +{drill.xp} XP
+              </span>
+            </div>
+            <p className="text-sm text-gray-200 leading-relaxed">{drill.prompt}</p>
+            {drill.spoken && (
+              <button
+                onClick={() => {
+                  const utterance = new SpeechSynthesisUtterance(drill.spoken!);
+                  utterance.lang = 'en-US';
+                  utterance.rate = 0.92;
+                  window.speechSynthesis.speak(utterance);
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-500/12 border border-primary-500/25 text-primary-300 text-xs font-semibold hover:bg-primary-500/20 transition-colors"
+              >
+                <Volume2 className="w-3.5 h-3.5" /> Play it
+              </button>
+            )}
+            {drill.options && (
+              <div className="space-y-2">
+                {drill.options.map((option, i) => (
+                  <button
+                    key={i}
+                    onClick={() => void answerDrill(i)}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl border text-sm transition-all ${
+                      drillChoice === i
+                        ? drillChoiceCorrect
+                          ? 'bg-success-500/15 border-success-500/45 text-white'
+                          : 'bg-red-500/15 border-red-500/45 text-white'
+                        : 'glass border-white/[0.06] text-gray-300 hover:border-white/[0.12]'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+                {drillChoice !== null && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-[11px] text-gray-400 leading-relaxed"
+                  >
+                    {drill.explanation}
+                  </motion.p>
+                )}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+      )}
+
       {/* Today's lesson */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -424,6 +519,15 @@ export function Home({ onNavigate }: HomeProps) {
               <p className="text-xs text-gray-500 mt-0.5 truncate">
                 Your mistakes, in one session
               </p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('league')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-warning-500/10 flex items-center justify-center">
+              <Trophy className="w-[18px] h-[18px] text-warning-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Weekly league</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">Challenges and your tier</p>
             </div>
           </Card>
           <Card hover onClick={() => onNavigate('exam')} className="flex flex-col gap-2">

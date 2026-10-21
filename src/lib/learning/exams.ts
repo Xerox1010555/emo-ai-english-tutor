@@ -202,6 +202,83 @@ const IELTS_SECTIONS: ExamSection[] = [
         explanation: 'Students get "a slightly higher limit" than the standard four.',
         skill: 'Listening',
       },
+      {
+        id: 'iel_l11',
+        spoken:
+          'We can offer you the standard package for forty pounds a month, although the premium one, at sixty, includes unlimited support.',
+        prompt: 'How much is the premium package?',
+        options: ['Forty pounds', 'Sixty pounds', 'Forty pounds a year', 'It is not stated'],
+        correct: 1,
+        explanation:
+          'Two prices are mentioned and the question asks about the second one. Mark the price you hear, not the number you think of.',
+        skill: 'Listening',
+      },
+      {
+        id: 'iel_l12',
+        spoken:
+          'The train to Manchester leaves from platform nine, not platform four as announced this morning.',
+        prompt: 'Which platform does the train leave from?',
+        options: ['Platform nine', 'Platform four', 'Both platforms', 'Not announced'],
+        correct: 0,
+        explanation: '"not platform four as announced" — the correction names the real one first.',
+        skill: 'Listening',
+      },
+      {
+        id: 'iel_l13',
+        spoken:
+          'I would like to reschedule my appointment, but I understand it has to be at least two days in advance.',
+        prompt: 'When can the appointment be changed?',
+        options: [
+          'At least two days before',
+          'Any time on the day',
+          'Only by phone',
+          'It cannot be changed',
+        ],
+        correct: 0,
+        explanation: '"At least two days in advance" is the condition, and the speaker accepts it.',
+        skill: 'Listening',
+      },
+      {
+        id: 'iel_l14',
+        spoken:
+          'We were going to open the new centre last spring, but the planning permission took much longer than expected.',
+        prompt: 'When was the new centre supposed to open?',
+        options: ['Last spring', 'This summer', 'Next spring', 'It never opened'],
+        correct: 0,
+        explanation: '"We were going to open ... last spring" is the original plan, not what happened.',
+        skill: 'Listening',
+      },
+      {
+        id: 'iel_l15',
+        spoken:
+          'The application form must be submitted online; a printed copy will not be accepted, though we can post one to you.',
+        prompt: 'What can applicants do if they have no internet access?',
+        options: [
+          'Ask for a printed copy to be posted',
+          'Hand in a printed copy at the office',
+          'Use the old paper form',
+          'Nothing — online is the only option',
+        ],
+        correct: 0,
+        explanation:
+          '"A printed copy will not be accepted, though we can post one to you" — the option is help, not submission.',
+        skill: 'Listening',
+      },
+      {
+        id: 'iel_l16',
+        spoken:
+          'Payment is by bank transfer only, and the account details are printed on page four of the form.',
+        prompt: 'Where are the payment details?',
+        options: [
+          'On page four of the form',
+          'On the website',
+          'In the covering letter',
+          'At the office',
+        ],
+        correct: 0,
+        explanation: 'The speaker gives an exact location: "printed on page four".',
+        skill: 'Listening',
+      },
     ],
   },
   {
@@ -321,6 +398,96 @@ const IELTS_SECTIONS: ExamSection[] = [
         options: ['The company\'s staff', 'The devices', 'The boxes', 'The technicians'],
         correct: 1,
         explanation: 'Follow the reference: "fewer than a fifth of the devices are ever opened".',
+        skill: 'Reading',
+      },
+      {
+        id: 'iel_r9',
+        passage:
+          'The quiet rise of the four-day week is often told as a story about productivity: employers who gave staff a day off, and who found that the work still got done. That story is only half right. The organisations that made the change work tend to share three habits — they cut the number of meetings, they stopped measuring hours at desks, and they gave teams more control over how the work was organised. Where those habits were absent, the same policy produced something closer to five-and-a-half days of work compressed into four.',
+        prompt: 'What does the author suggest about the four-day week?',
+        options: [
+          'It works only where working habits also change',
+          'It always reduces productivity',
+          'It is mainly a story about employers',
+          'It has nothing to do with meetings',
+        ],
+        correct: 0,
+        explanation:
+          'The author says the outcome depends on three habits: "Where those habits were absent, the same policy produced something closer to five-and-a-half days".',
+        skill: 'Reading',
+      },
+      {
+        id: 'iel_r10',
+        passage:
+          'The quiet rise of the four-day week is often told as a story about productivity. That story is only half right. The organisations that made the change work tend to share three habits — they cut the number of meetings, they stopped measuring hours at desks, and they gave teams more control.',
+        prompt: 'Why does the author call the productivity story "only half right"?',
+        options: [
+          'Because the changes that work are about habits, not output alone',
+          'Because productivity actually fell',
+          'Because employers tell it badly',
+          'Because the four-day week is disappearing',
+        ],
+        correct: 0,
+        explanation:
+          '"Only half right" is followed by what the author thinks the other half is: the working habits.',
+        skill: 'Reading',
+      },
+      {
+        id: 'iel_r11',
+        passage:
+          'Many schools have replaced the traditional written exam with a portfolio of work collected over a year. Supporters argue that this measures learning more fairly: a student who understands the material can show it in a project, a performance or an explanation, however they happen to express it. Critics respond that portfolios reward the students with the most support at home, and that a quiet student with a good idea may never produce a polished piece of evidence.',
+        prompt: 'What is the main criticism of portfolios?',
+        options: [
+          'They favour learners with more support at home',
+          'They take too much of the teacher\'s time',
+          'They cannot measure real understanding',
+          'They are too expensive for schools',
+        ],
+        correct: 0,
+        explanation:
+          'The critics\' point is in the second sentence of that clause: "reward the students with the most support at home".',
+        skill: 'Reading',
+      },
+      {
+        id: 'iel_r12',
+        passage:
+          'Many schools have replaced the traditional written exam with a portfolio of work collected over a year. Supporters argue that this measures learning more fairly. Critics respond that portfolios reward the students with the most support at home.',
+        prompt: 'What is the writer\'s own view of the two sides?',
+        options: [
+          'Neither side is proved either way',
+          'The supporters are right and the critics are wrong',
+          'The critics are right and the supporters are wrong',
+          'The writer supports portfolios over exams',
+        ],
+        correct: 0,
+        explanation:
+          'The writer reports both sides without taking a side — no evaluative language appears. Do not import a preference that is not there.',
+        skill: 'Reading',
+      },
+      {
+        id: 'iel_r13',
+        passage:
+          'The idea that attention is a scarce resource, borrowed from economics, has shaped decades of advice about focus. It explains why a task feels harder when interrupted, and why people check their phone when they are anxious. But the metaphor misleads in one important way: attention does not dwindle like a bank balance, and it is not consumed by being spent. What actually happens is closer to a muscle that fatigues with use and recovers with rest.',
+        prompt: 'What does the author say the "scarce resource" metaphor gets wrong?',
+        options: [
+          'That attention behaves more like a muscle than a balance',
+          'That interruptions do not make tasks harder',
+          'That people check their phones when anxious',
+          'That advice about focus has been shaped by economics',
+        ],
+        correct: 0,
+        explanation:
+          '"But the metaphor misleads in one important way" leads directly to the muscle comparison.',
+        skill: 'Reading',
+      },
+      {
+        id: 'iel_r14',
+        passage:
+          'The idea that attention is a scarce resource has shaped decades of advice about focus. It explains why a task feels harder when interrupted. But the metaphor misleads: attention does not dwindle like a bank balance, and it is not consumed by being spent.',
+        prompt: 'What is the closest meaning of "dwindle"?',
+        options: ['Grow', 'Diminish', 'Fluctuate', 'Recover'],
+        correct: 1,
+        explanation: '"Dwindle" = become gradually smaller or weaker — the opposite of "recover".',
         skill: 'Reading',
       },
     ],
@@ -458,6 +625,51 @@ const TOEFL_SECTIONS: ExamSection[] = [
         explanation: '"Rather than … decided to …" — the second option is the decision.',
         skill: 'Listening',
       },
+      {
+        id: 'toefl_l7',
+        spoken:
+          'Our records show the payment was received on the third, which is two days after the invoice date.',
+        prompt: 'What is the invoice date?',
+        options: ['The 1st', 'The 3rd', 'The 2nd', 'The 5th'],
+        correct: 0,
+        explanation: 'Two days before the third is the first. Dates are the favourite trap in TOEFL listening.',
+        skill: 'Listening',
+      },
+      {
+        id: 'toefl_l8',
+        spoken:
+          'The seminar is normally on Tuesdays, but this week it has been moved to Thursday because of the public holiday.',
+        prompt: 'When is the seminar this week?',
+        options: ['Tuesday', 'Thursday', 'Both days', 'It is cancelled'],
+        correct: 1,
+        explanation: '"Normally on Tuesdays, but this week … moved to Thursday" — the exception wins.',
+        skill: 'Listening',
+      },
+      {
+        id: 'toefl_l9',
+        spoken:
+          'You may park in the blue bays for two hours, provided you display a valid permit on the dashboard.',
+        prompt: 'What must drivers do?',
+        options: [
+          'Display a valid permit',
+          'Pay at the machine',
+          'Use the underground car park',
+          'Arrive before nine',
+        ],
+        correct: 0,
+        explanation: '"Provided you display a valid permit" is the condition attached to parking.',
+        skill: 'Listening',
+      },
+      {
+        id: 'toefl_l10',
+        spoken:
+          'The library extended its opening hours in September, and attendance has risen by nearly a third since then.',
+        prompt: 'By how much has attendance risen?',
+        options: ['By about 33%', 'By about 3%', 'It has fallen', 'It has not changed'],
+        correct: 0,
+        explanation: '"A third" = about 33%. Beware "nearly" — it means slightly less than a third.',
+        skill: 'Listening',
+      },
     ],
   },
   {
@@ -551,6 +763,58 @@ const TOEFL_SECTIONS: ExamSection[] = [
         options: ['Explain', 'Pay for', 'Record', 'Predict'],
         correct: 0,
         explanation: '"Cannot account for" = cannot explain.',
+        skill: 'Reading',
+      },
+      {
+        id: 'toefl_r7',
+        passage:
+          'For a century, economists treated air as a free good: it was everywhere, cost nothing to use, and disappeared the moment you opened a window. The arrival of air conditioning changed that arithmetic. In hot climates, cooling became a purchasable service, and once a service can be bought, it can be taxed, rationed or regulated. Several governments now treat the right to cool as part of basic public health, which is a considerable change from treating heat as a private inconvenience.',
+        prompt: 'What is the main idea of the passage?',
+        options: [
+          'Cooling became a service, and therefore something governments regulate',
+          'Air conditioning is a luxury good',
+          'Hot climates are becoming cooler',
+          'Economists used to think air was expensive',
+        ],
+        correct: 0,
+        explanation:
+          'The second sentence sets it up and the third draws the consequence — the last sentence is the example of that consequence.',
+        skill: 'Reading',
+      },
+      {
+        id: 'toefl_r8',
+        passage:
+          'For a century, economists treated air as a free good. The arrival of air conditioning changed that arithmetic. In hot climates, cooling became a purchasable service, and once a service can be bought, it can be taxed, rationed or regulated.',
+        prompt: 'What does "arithmetic" refer to in the passage?',
+        options: ['The cost calculation', 'A mathematical error', 'The history of economics', 'The weather'],
+        correct: 0,
+        explanation:
+          '"That arithmetic" = the way the costs and benefits were counted. TOEFL loves figurative words.',
+        skill: 'Reading',
+      },
+      {
+        id: 'toefl_r9',
+        passage:
+          'The decision to publish a study is rarely a single moment. It begins with a manuscript, passes through review, and then meets a journal whose commercial priorities may not match the author\'s. Editors, not researchers, hold most of the power in this process, and they exercise it under conditions that reward novelty: a paper that confirms what everyone already believes is less likely to be published than one that is surprising.',
+        prompt: 'According to the passage, what do editors tend to reward?',
+        options: ['Novelty', 'Replication', 'Length', 'Practical impact'],
+        correct: 0,
+        explanation: '"They exercise it under conditions that reward novelty."',
+        skill: 'Reading',
+      },
+      {
+        id: 'toefl_r10',
+        passage:
+          'The decision to publish a study is rarely a single moment. It begins with a manuscript, passes through review, and then meets a journal whose commercial priorities may not match the author\'s.',
+        prompt: 'What does the passage contrast with the author\'s priorities?',
+        options: [
+          "The journal's commercial priorities",
+          'The peer reviewers',
+          'The research methodology',
+          'The funding body',
+        ],
+        correct: 0,
+        explanation: '"Commercial priorities may not match the author\'s" — the contrast is stated directly.',
         skill: 'Reading',
       },
     ],

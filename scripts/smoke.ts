@@ -27,6 +27,14 @@ import { speakingAttemptPassed, scoreSpeaking } from '../src/lib/learning/speech
 import { buildReviewQueue, reviewXp, xpLevel } from '../src/lib/learning/review';
 import { EXAMS, cefrForBand, localWritingCheck, scoreExam } from '../src/lib/learning/exams';
 import { SCENARIOS, scoreScenario } from '../src/lib/learning/scenarios';
+import { DRILL_BANK, drillForSlot, hourSlot } from '../src/lib/learning/hourlyDrill';
+import {
+  availableChallengeXp,
+  buildChallenges,
+  leagueForXp,
+  streakState,
+  type ChallengeKind,
+} from '../src/lib/learning/challenges';
 import {
   EXAMS,
   cefrForBand,
@@ -917,6 +925,107 @@ check('the score counts the words', goodTalk.words > 20, String(goodTalk.words))
 const emptyTalk = scoreScenario(interview, '');
 check('saying nothing scores zero', emptyTalk.percentage === 0, String(emptyTalk.percentage));
 check('saying nothing covers nothing', emptyTalk.covered.length === 0);
+
+// ------------------------------------------------ regression: hourly drill ----
+section('Hourly drill');
+
+check('the drill bank is not empty', DRILL_BANK.length >= 12, String(DRILL_BANK.length));
+check(
+  'every drill has an explanation',
+  DRILL_BANK.every((d) => d.explanation.length > 20),
+);
+check(
+  'every multiple-choice drill has a valid answer index',
+  DRILL_BANK.every((d) =>
+    d.options ? d.correct !== undefined && d.correct < d.options.length : true,
+  ),
+);
+check(
+  'every drill gives XP',
+  DRILL_BANK.every((d) => d.xp > 0),
+);
+
+const slotA = drillForSlot('user-1', new Date(2026, 9, 21, 10, 0));
+const slotB = drillForSlot('user-1', new Date(2026, 9, 21, 10, 30));
+
+check('the drill is stable within the hour', slotA.id === slotB.id);
+check('the drill comes from the bank', DRILL_BANK.some((d) => d.id === slotA.id));
+check('the hour slot is local', hourSlot(new Date(2026, 9, 21, 14, 0)) === '2026-10-21T14');
+
+const dayDrills = new Set(
+  Array.from({ length: 24 }, (_, hour) =>
+    drillForSlot('user-1', new Date(2026, 9, 21, hour, 0)).id,
+  ),
+);
+check(
+  'the hourly rotation uses several drills in a day',
+  dayDrills.size >= 4,
+  String(dayDrills.size),
+);
+
+// ------------------------------------------- regression: challenges & league ----
+section('Weekly challenges and league');
+
+const challengeInputs = {
+  lessonsCompleted: 2,
+  questsCompleted: 5,
+  reviewSessions: 1,
+  wordsMastered: 0,
+  xpEarned: 120,
+  streak: 6,
+  claimedKinds: [] as ChallengeKind[],
+};
+const built = buildChallenges(challengeInputs);
+check('every challenge is built', built.length === 4, String(built.length));
+check(
+  'a finished challenge is complete',
+  built.find((c) => c.definition.kind === 'quests')?.complete === true,
+);
+check(
+  'an unfinished challenge is not complete',
+  built.find((c) => c.definition.kind === 'lessons')?.complete === false,
+);
+check(
+  'progress never exceeds the target',
+  built.every((c) => c.progress <= c.definition.target),
+);
+check(
+  'a claimed challenge is marked as claimed',
+  buildChallenges({ ...challengeInputs, claimedKinds: ['quests'] }).find(
+    (c) => c.definition.kind === 'quests',
+  )?.claimed === true,
+);
+check(
+  'only unclaimed complete challenges can be claimed',
+  availableChallengeXp(built) ===
+    built.filter((c) => c.complete && !c.claimed).reduce((s, c) => s + c.definition.rewardXp, 0),
+);
+
+check('0 XP is Bronze', leagueForXp(0).name === 'Bronze');
+check('200 XP is Silver', leagueForXp(200).name === 'Silver');
+check('400 XP is Gold', leagueForXp(400).name === 'Gold');
+check('700 XP is Platinum', leagueForXp(700).name === 'Platinum');
+check('1000 XP is Diamond', leagueForXp(1000).name === 'Diamond');
+check('the league reports the XP to the next tier', leagueForXp(200).toNext === 150);
+check('the top tier has no next', leagueForXp(2000).next === null);
+
+check('an active streak is alive', streakState('2026-10-21', '2026-10-21', 0).alive);
+check(
+  'yesterday still counts as alive',
+  streakState('2026-10-20', '2026-10-21', 0).alive,
+);
+check(
+  'a missed day breaks the streak',
+  streakState('2026-10-19', '2026-10-21', 0).broken,
+);
+check(
+  'a freeze can rescue a broken streak',
+  streakState('2026-10-19', '2026-10-21', 1).canFreeze,
+);
+check(
+  'without a freeze there is no rescue',
+  streakState('2026-10-19', '2026-10-21', 0).canFreeze === false,
+);
 
 // --------------------------------------------------------------- summary ----
 console.log(`\n${'-'.repeat(46)}`);

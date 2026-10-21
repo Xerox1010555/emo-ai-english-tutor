@@ -16,6 +16,8 @@ export interface ExtendedProfile extends Profile {
   tz_offset_minutes?: number | null;
   /** The interface language (en | ar). */
   ui_language?: 'en' | 'ar' | null;
+  /** How many streak rescues the learner owns. */
+  streak_freezes?: number | null;
 }
 
 /**

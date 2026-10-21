@@ -16,6 +16,7 @@ import { VocabularyScreen } from '@/components/screens/VocabularyScreen';
 import { WeeklyReportScreen } from '@/components/screens/WeeklyReportScreen';
 import { ExamScreen } from '@/components/screens/ExamScreen';
 import { ScenarioScreen } from '@/components/screens/ScenarioScreen';
+import { ChallengesScreen } from '@/components/screens/ChallengesScreen';
 import { AdminScreen } from '@/components/screens/AdminScreen';
 import { SettingsScreen } from '@/components/screens/SettingsScreen';
 import { PageTransition } from '@/components/ui/motion';
@@ -138,6 +139,7 @@ function App() {
           {activeTab === 'report' && <WeeklyReportScreen />}
           {activeTab === 'exam' && <ExamScreen />}
           {activeTab === 'scenario' && <ScenarioScreen />}
+          {activeTab === 'league' && <ChallengesScreen />}
           {activeTab === 'admin' && <AdminScreen />}
           {activeTab === 'settings' && <SettingsScreen onNavigate={setActiveTab} />}
           {activeTab === 'quiz' && <QuizScreen onNavigate={setActiveTab} />}
