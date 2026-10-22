@@ -7,6 +7,7 @@ import {
   BookOpen,
   Brain,
   Calendar,
+  CalendarDays,
   CheckCircle2,
   Clock,
   Flame,
@@ -528,6 +529,15 @@ export function Home({ onNavigate }: HomeProps) {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white">Weekly league</p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">Challenges and your tier</p>
+            </div>
+          </Card>
+          <Card hover onClick={() => onNavigate('year')} className="flex flex-col gap-2">
+            <div className="w-9 h-9 rounded-xl bg-accent-500/10 flex items-center justify-center">
+              <CalendarDays className="w-[18px] h-[18px] text-accent-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Your year</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">365 lessons per skill</p>
             </div>
           </Card>
           <Card hover onClick={() => onNavigate('exam')} className="flex flex-col gap-2">

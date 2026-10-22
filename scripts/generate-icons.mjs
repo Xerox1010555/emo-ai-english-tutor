@@ -1,9 +1,13 @@
 /**
- * Generates the PWA icons.
+ * Generates the app icons and the favicon.
  *
- * The mark is drawn programmatically (a rounded glass tile with a gradient
- * "E"), so the repository never needs binary art and the icon always matches
- * the brand colours. Run with: node scripts/generate-icons.mjs
+ * The mark: a rounded "speech bubble" tile in the brand gradient, holding a
+ * clean letter E whose middle arm is shorter — a small detail that makes the
+ * shape read as a monogram rather than a font glyph. Everything is drawn
+ * programmatically so the icon always matches the brand colours and the
+ * repository carries no binary art.
+ *
+ * Run with: node scripts/generate-icons.mjs
  */
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -11,14 +15,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, '..', 'public', 'icons');
-mkdirSync(outDir, { recursive: true });
-
-const BRAND = [
-  [239, 68, 68], // primary-500
-  [59, 130, 246], // accent-500
-];
-const INK = [12, 12, 24];
+const iconsDir = join(here, '..', 'public', 'icons');
+const publicDir = join(here, '..', 'public');
+mkdirSync(iconsDir, { recursive: true });
 
 /** CRC32 for PNG chunks. */
 function crc32(buf) {
@@ -76,6 +75,10 @@ function png(size, pixel) {
   ]);
 }
 
+const BRAND_A = [248, 113, 113]; // primary-400
+const BRAND_B = [220, 38, 38]; // primary-600
+const ACCENT = [96, 165, 250]; // accent-400
+
 /** Signed distance to a rounded rectangle. */
 function roundedRect(x, y, size, radius, inset) {
   const min = inset;
@@ -87,44 +90,60 @@ function roundedRect(x, y, size, radius, inset) {
   return Math.sqrt(dx * dx + dy * dy) - radius;
 }
 
-/** The "E" mark, drawn as three bars plus a spine. */
+/** The letter E, drawn as three bars and a spine. */
 function inE(x, y, size) {
-  const u = size / 16; // unit
-  const left = 5 * u;
-  const right = 11 * u;
-  const top = 4 * u;
-  const bottom = 12 * u;
-  const bar = 1.6 * u;
+  const u = size / 16;
+  const left = 5.2 * u;
+  const right = 10.8 * u;
+  const top = 4.4 * u;
+  const bottom = 11.6 * u;
+  const bar = 1.55 * u;
+  const mid = (top + bottom) / 2;
 
   const inBox = (x0, y0, x1, y1) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
 
-  // spine
-  if (inBox(left, top, left + bar, bottom)) return true;
-  // top bar
-  if (inBox(left, top, right, top + bar)) return true;
-  // middle bar
-  if (inBox(left, (top + bottom) / 2 - bar / 2, right - u, (top + bottom) / 2 + bar / 2)) return true;
-  // bottom bar
-  if (inBox(left, bottom - bar, right, bottom)) return true;
+  if (inBox(left, top, left + bar, bottom)) return true; // spine
+  if (inBox(left, top, right, top + bar)) return true; // top arm
+  if (inBox(left, mid - bar / 2, right - 1.1 * u, mid + bar / 2)) return true; // middle arm
+  if (inBox(left, bottom - bar, right, bottom)) return true; // bottom arm
   return false;
 }
 
 function makeIcon(size, { maskable = false } = {}) {
-  const radius = maskable ? size / 2 : size * 0.22;
-  const inset = maskable ? size * 0.1 : size * 0.06;
+  const radius = maskable ? size / 2 : size * 0.235;
+  const inset = maskable ? size * 0.115 : size * 0.075;
+  const tail = maskable ? 0 : size * 0.13;
 
   return png(size, (x, y) => {
     const d = roundedRect(x, y, size, radius, inset);
-    if (d > 0) return [0, 0, 0, 0]; // outside the tile
+    if (d > 0) {
+      // The speech-bubble tail, only on the non-maskable icon.
+      if (!maskable && tail > 0) {
+        const tx = size * 0.34;
+        const ty = size * 0.86;
+        const inTail =
+          y > ty - size * 0.1 && y < ty + size * 0.05 && x > tx && x < tx + size * 0.16 - (y - ty) * 1.4;
+        if (inTail) {
+          const t = (y - ty) / (size * 0.15);
+          const c = [
+            BRAND_A[0] * (1 - t) + BRAND_B[0] * t,
+            BRAND_A[1] * (1 - t) + BRAND_B[1] * t,
+            BRAND_A[2] * (1 - t) + BRAND_B[2] * t,
+          ];
+          return [Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), 255];
+        }
+      }
+      return [0, 0, 0, 0];
+    }
 
-    // Brand gradient from top-left (primary) to bottom-right (accent).
-    const t = (x / size) * 0.6 + (y / size) * 0.4;
-    const r = Math.round(BRAND[0][0] * (1 - t) + BRAND[1][0] * t);
-    const g = Math.round(BRAND[0][1] * (1 - t) + BRAND[1][1] * t);
-    const b = Math.round(BRAND[0][2] * (1 - t) + BRAND[1][2] * t);
+    // Brand gradient with a cool accent in the lower right.
+    const t = Math.min(1, Math.max(0, (x / size) * 0.65 + (y / size) * 0.35));
+    const r = Math.round(BRAND_A[0] * (1 - t) + BRAND_B[0] * t);
+    const g = Math.round(BRAND_A[1] * (1 - t) + BRAND_B[1] * t);
+    const b = Math.round(BRAND_A[2] * (1 - t) + BRAND_B[2] * t);
 
-    // Inner glass: a soft light from the top-left.
-    const gloss = Math.max(0, 0.22 - ((x + y) / size) * 0.22);
+    // Glass highlight from the top left.
+    const gloss = Math.max(0, 0.26 - ((x + y) / size) * 0.26);
     const base = [
       Math.min(255, r + gloss * 255),
       Math.min(255, g + gloss * 255),
@@ -135,7 +154,16 @@ function makeIcon(size, { maskable = false } = {}) {
       return [255, 255, 255, 255];
     }
 
-    return [Math.round(base[0]), Math.round(base[1]), Math.round(base[2]), 255];
+    // A faint accent glow in the lower-right corner.
+    const dx = x - size * 0.78;
+    const dy = y - size * 0.78;
+    const glow = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / (size * 0.45));
+    return [
+      Math.round(base[0] * (1 - glow * 0.45) + ACCENT[0] * glow * 0.45),
+      Math.round(base[1] * (1 - glow * 0.45) + ACCENT[1] * glow * 0.45),
+      Math.round(base[2] * (1 - glow * 0.45) + ACCENT[2] * glow * 0.45),
+      255,
+    ];
   });
 }
 
@@ -144,10 +172,26 @@ const targets = [
   ['icon-512.png', 512, {}],
   ['icon-maskable-512.png', 512, { maskable: true }],
   ['badge-72.png', 72, {}],
+  ['apple-touch-icon.png', 180, {}],
 ];
 
 for (const [name, size, options] of targets) {
-  const file = join(outDir, name);
+  const file = join(iconsDir, name);
   writeFileSync(file, makeIcon(size, options));
   console.log('wrote', file);
 }
+
+// The favicon is a small SVG of the same mark.
+const favicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f87171"/>
+      <stop offset="1" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#g)"/>
+  <path d="M21 17h22v6H27v6h13v6H27v12h-6z" fill="#fff"/>
+</svg>
+`;
+writeFileSync(join(publicDir, 'favicon.svg'), favicon);
+console.log('wrote', join(publicDir, 'favicon.svg'));

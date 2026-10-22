@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إنشاء حساب</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ————— خلفية متحركة (نفس ستايل الـ Login) ————— -->
+  <div class="bg" aria-hidden="true">
+    <span class="orb orb1"></span>
+    <span class="orb orb2"></span>
+    <span class="orb orb3"></span>
+    <div class="grid"></div>
+    <span class="particle p1"></span>
+    <span class="particle p2"></span>
+    <span class="particle p3"></span>
+    <span class="particle p4"></span>
+    <span class="particle p5"></span>
+    <span class="particle p6"></span>
+  </div>
+
+  <main class="page">
+    <!-- المشهد اللي بيدي الكارت منظور 3D -->
+    <div class="scene">
+      <section class="card" aria-label="نموذج إنشاء حساب">
+        <span class="shine" aria-hidden="true"></span>
+
+        <header class="card__header">
+          <div class="logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M19 8v6" />
+              <path d="M22 11h-6" />
+            </svg>
+          </div>
+          <h1>إنشاء حساب</h1>
+          <p>املأ البيانات التالية عشان تعمل حسابك</p>
+        </header>
+
+        <!-- بداية النموذج -->
+        <form id="signupForm" novalidate>
+          <!-- حقل الاسم -->
+          <div class="field" id="nameField" style="--i: 1">
+            <label for="name">الاسم</label>
+            <div class="input-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
+              </svg>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                placeholder="اسمك الكامل"
+                autocomplete="name"
+                aria-describedby="nameError"
+              />
+            </div>
+            <p class="error-msg" id="nameError" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- حقل البريد الإلكتروني -->
+          <div class="field" id="emailField" style="--i: 2">
+            <label for="email">البريد الإلكتروني</label>
+            <div class="input-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M2 7l10 6 10-6" />
+              </svg>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="name@example.com"
+                autocomplete="email"
+                aria-describedby="emailError"
+              />
+            </div>
+            <p class="error-msg" id="emailError" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- حقل كلمة المرور -->
+          <div class="field" id="passwordField" style="--i: 3">
+            <div class="label-row">
+              <label for="password">كلمة المرور</label>
+            </div>
+            <div class="input-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="10" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="••••••••"
+                autocomplete="new-password"
+                aria-describedby="passwordError passwordHint"
+              />
+              <button type="button" class="toggle" id="togglePassword" aria-label="إظهار كلمة المرور">
+                <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <svg id="eyeClosed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                  <path d="M1 1l22 22" />
+                </svg>
+              </button>
+            </div>
+            <p class="error-msg" id="passwordError" role="alert" aria-live="polite"></p>
+            <div class="strength" id="strengthMeter" data-level="" hidden>
+              <div class="bars" aria-hidden="true">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+              </div>
+              <span class="label" id="strengthLabel">قوة كلمة المرور</span>
+            </div>
+            <p class="hint" id="passwordHint">8 خانات على الأقل، وفيها حروف وأرقام</p>
+          </div>
+
+          <!-- تأكيد كلمة المرور -->
+          <div class="field" id="confirmField" style="--i: 4">
+            <label for="confirmPassword">تأكيد كلمة المرور</label>
+            <div class="input-wrap">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                placeholder="اكتبها تاني"
+                autocomplete="new-password"
+                aria-describedby="confirmError"
+              />
+            </div>
+            <p class="error-msg" id="confirmError" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- الموافقة على الشروط -->
+          <div class="field" id="termsField" style="--i: 5">
+            <label class="remember terms">
+              <input type="checkbox" id="terms" name="terms" />
+              <span class="checkbox-ui" aria-hidden="true"></span>
+              أوافق على <a href="#" class="forgot">الشروط والأحكام</a>
+            </label>
+            <p class="error-msg" id="termsError" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- زر إنشاء الحساب -->
+          <button type="submit" class="submit" id="submitBtn" style="--i: 6">
+            <span class="spinner" aria-hidden="true" hidden></span>
+            <span id="submitLabel">إنشاء الحساب</span>
+          </button>
+        </form>
+        <!-- نهاية النموذج -->
+
+        <!-- رسالة النجاح -->
+        <div class="success" id="successBox" role="status" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          <div>
+            <strong>تم إنشاء الحساب بنجاح</strong>
+            <span>جهّز نفسك… حوّلك لصفحة الدخول</span>
+          </div>
+        </div>
+
+        <footer class="card__footer">
+          <p>عندك حساب بالفعل؟ <a href="index.html">سجّل الدخول</a></p>
+        </footer>
+      </section>
+    </div>
+  </main>
+
+  <script src="signup.js"></script>
+</body>
+</html>

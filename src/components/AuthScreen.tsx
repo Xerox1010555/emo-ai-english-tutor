@@ -3,16 +3,25 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 import { Button } from '@/components/ui/Button';
 import { MeshBackground } from '@/components/ui/MeshBackground';
-import { Mail, Lock, ArrowRight, Sparkles, CheckCircle2, KeyRound } from 'lucide-react';
-
-type Mode = 'signin' | 'signup' | 'forgot';
+import {
+  ArrowRight,
+  CheckCircle2,
+  KeyRound,
+  Lock,
+  Mail,
+  Moon,
+  Sparkles,
+  Sun,
+} from 'lucide-react';
 
 export function AuthScreen() {
   const { signIn, signUp } = useAuth();
   const { t } = useI18n();
-  const [mode, setMode] = useState<Mode>('signin');
+  const { setTheme, isLight } = useTheme();
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -53,16 +62,36 @@ export function AuthScreen() {
     }
   }
 
+  const benefits = [
+    'A tutor that remembers your mistakes',
+    'One lesson a day, written for your level',
+    'Speaking practice scored word by word',
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
       <MeshBackground />
 
+      {/* Theme switch, always reachable */}
+      <button
+        onClick={() => setTheme(isLight ? 'dark' : 'light')}
+        aria-label={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
+        className="absolute top-4 right-4 z-20 w-10 h-10 rounded-xl glass-panel depth-1 flex items-center justify-center text-gray-400 hover:text-primary-300 transition-colors"
+      >
+        {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+      </button>
+
       <div className="relative flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10 animate-fade-up">
+        {/* Brand */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col items-center mb-8"
+        >
           <div className="relative mb-5">
             <motion.div
-              className="w-24 h-24 rounded-[28px] glass-panel flex items-center justify-center shadow-glass-lg"
+              className="w-24 h-24 rounded-[28px] glass-panel depth-3 flex items-center justify-center"
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
             >
@@ -72,18 +101,24 @@ export function AuthScreen() {
             </motion.div>
             <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary-500/30 animate-pulse-ring" />
           </div>
-          <h1 className="text-4xl font-extrabold text-white font-sans tracking-tight text-gradient-brand">
+
+          <h1 className="text-4xl font-extrabold text-white font-sans tracking-tight text-gradient-brand text-3d">
             Emo
           </h1>
-          <p className="text-gray-400 text-sm mt-2 text-center leading-relaxed">
+          <p className="text-gray-400 text-sm mt-2 text-center leading-relaxed max-w-xs">
             {t('auth.tagline')}
           </p>
-        </div>
+        </motion.div>
 
-        {/* Auth form */}
-        <div className="glass-panel rounded-3xl p-6 animate-fade-up shadow-glass-lg" style={{ animationDelay: '0.1s' }}>
+        {/* Auth card */}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-panel rounded-3xl p-6 shadow-glass-lg"
+        >
           {mode !== 'forgot' && (
-            <div className="flex gap-2 mb-6 p-1 bg-black/30 rounded-xl">
+            <div className="flex gap-2 mb-6 p-1 bg-black/25 rounded-xl border border-white/[0.05]">
               <button
                 onClick={() => {
                   setMode('signin');
@@ -91,10 +126,12 @@ export function AuthScreen() {
                   setNotice(null);
                 }}
                 className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  mode === 'signin' ? 'bg-white/10 text-white' : 'text-gray-500'
+                  mode === 'signin'
+                    ? 'bg-gradient-to-b from-white/[0.14] to-white/[0.05] text-white border border-white/[0.08]'
+                    : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                Sign In
+                {t('auth.signin')}
               </button>
               <button
                 onClick={() => {
@@ -103,17 +140,19 @@ export function AuthScreen() {
                   setNotice(null);
                 }}
                 className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  mode === 'signup' ? 'bg-white/10 text-white' : 'text-gray-500'
+                  mode === 'signup'
+                    ? 'bg-gradient-to-b from-white/[0.14] to-white/[0.05] text-white border border-white/[0.08]'
+                    : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                Sign Up
+                {t('auth.signup')}
               </button>
             </div>
           )}
 
           {mode === 'forgot' && (
             <div className="mb-5">
-              <h2 className="text-base font-bold text-white">Reset your password</h2>
+              <h2 className="text-base font-bold text-white">{t('auth.reset')}</h2>
               <p className="text-xs text-gray-500 mt-1">
                 Enter your email and we will send you a reset link.
               </p>
@@ -133,7 +172,7 @@ export function AuthScreen() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/[0.06] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/50 transition-colors"
+                  className="w-full pl-10 pr-4 py-3 bg-[var(--input-bg)] border border-white/[0.07] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/50 transition-colors"
                 />
               </div>
             </div>
@@ -141,8 +180,8 @@ export function AuthScreen() {
             {mode !== 'forgot' && (
               <div>
                 <label className="text-xs font-medium text-gray-400 mb-1.5 block">
-                {t('auth.password')}
-              </label>
+                  {t('auth.password')}
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
@@ -152,7 +191,7 @@ export function AuthScreen() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-3 bg-black/30 border border-white/[0.06] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/50 transition-colors"
+                    className="w-full pl-10 pr-4 py-3 bg-[var(--input-bg)] border border-white/[0.07] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/50 transition-colors"
                   />
                 </div>
                 {mode === 'signin' && (
@@ -165,7 +204,7 @@ export function AuthScreen() {
                     }}
                     className="text-[11px] text-gray-500 hover:text-primary-400 transition-colors mt-1.5 inline-flex items-center gap-1"
                   >
-                    <KeyRound className="w-3 h-3" /> Forgot password?
+                    <KeyRound className="w-3 h-3" /> {t('auth.forgot')}
                   </button>
                 )}
               </div>
@@ -178,7 +217,7 @@ export function AuthScreen() {
             )}
 
             {notice && (
-              <div className="text-sm text-success-400 bg-success-500/5 border border-success-500/15 rounded-lg px-4 py-2.5 flex items-start gap-2">
+              <div className="text-sm text-success-300 bg-success-500/8 border border-success-500/20 rounded-lg px-4 py-2.5 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{notice}</span>
               </div>
@@ -195,12 +234,22 @@ export function AuthScreen() {
               {!loading && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
             </Button>
           </form>
-        </div>
+        </motion.div>
 
-        <div className="flex items-center gap-3 mt-8 text-xs text-gray-600 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>{t('auth.footer')}</span>
-        </div>
+        {/* What the app does — the promise, not a slogan */}
+        <motion.ul
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-6 space-y-2"
+        >
+          {benefits.map((benefit) => (
+            <li key={benefit} className="flex items-start gap-2 text-[11px] text-gray-500 leading-relaxed">
+              <Sparkles className="w-3.5 h-3.5 text-primary-400/70 mt-0.5 flex-shrink-0" />
+              <span>{benefit}</span>
+            </li>
+          ))}
+        </motion.ul>
       </div>
     </div>
   );
@@ -220,6 +269,9 @@ function friendlyError(message: string): string {
   }
   if (lower.includes('password should be')) {
     return 'Passwords need at least 6 characters.';
+  }
+  if (lower.includes('weak') || lower.includes('guessable')) {
+    return 'That password is too easy to guess. Use three unrelated words.';
   }
   if (lower.includes('fetch') || lower.includes('network')) {
     return 'No connection. Check your internet and try again.';

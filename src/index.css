@@ -2,6 +2,146 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------
+   The palette lives in variables, not in the components.
+   Tailwind's ink/gray scales point at these, so a theme switch is a
+   variable change and nothing else. The gray scale INVERTS between the
+   two themes: in the dark theme gray-200 is light text on a dark
+   surface, in the light theme it is dark text on a light surface.
+   --------------------------------------------------------------------- */
+@layer base {
+  :root {
+    /* surfaces (ink scale) */
+    --ink-950: #070710;
+    --ink-900: #0a0a14;
+    --ink-850: #0e0e1a;
+    --ink-800: #13131f;
+    --ink-750: #181826;
+    --ink-700: #1e1e2e;
+    --ink-600: #2a2a3d;
+    --ink-500: #3a3a52;
+    --ink-400: #4a4a68;
+    --ink-300: #6a6a8a;
+
+    /* text (gray scale) */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+
+    --page-bg: #070710;
+    --page-glow-a: rgba(239, 68, 68, 0.1);
+    --page-glow-b: rgba(59, 130, 246, 0.1);
+    --page-glow-c: rgba(168, 85, 247, 0.07);
+    --app-shell: rgba(7, 7, 16, 0.6);
+
+    --glass-body: rgba(9, 9, 20, 0.62);
+    --glass-tint-a: rgba(255, 255, 255, 0.075);
+    --glass-tint-b: rgba(255, 255, 255, 0.022);
+    --glass-tint-c: rgba(255, 255, 255, 0.045);
+    --glass-border: rgba(255, 255, 255, 0.075);
+    --glass-hairline-border: rgba(255, 255, 255, 0.35);
+    --glass-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.85);
+    --glass-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+    --input-bg: rgba(0, 0, 0, 0.3);
+    --edge-subtle: rgba(255, 255, 255, 0.06);
+    --edge-default: rgba(255, 255, 255, 0.08);
+    --edge-strong: rgba(255, 255, 255, 0.12);
+  }
+
+  html[data-theme='light'] {
+    --ink-950: #e9edf5;
+    --ink-900: #f2f5fa;
+    --ink-850: #ffffff;
+    --ink-800: #ffffff;
+    --ink-750: #f5f7fc;
+    --ink-700: #e9edf5;
+    --ink-600: #dce2ee;
+    --ink-500: #c7cfe0;
+    --ink-400: #aab3c6;
+    --ink-300: #8d97ad;
+
+    --gray-50: #0f172a;
+    --gray-100: #1e293b;
+    --gray-200: #1f2937;
+    --gray-300: #334155;
+    --gray-400: #475569;
+    --gray-500: #64748b;
+    --gray-600: #94a3b8;
+    --gray-700: #cbd5e1;
+
+    --page-bg: #e9edf5;
+    --page-glow-a: rgba(239, 68, 68, 0.13);
+    --page-glow-b: rgba(59, 130, 246, 0.14);
+    --page-glow-c: rgba(168, 85, 247, 0.1);
+    --app-shell: rgba(242, 245, 250, 0.55);
+
+    --glass-body: rgba(255, 255, 255, 0.72);
+    --glass-tint-a: rgba(255, 255, 255, 0.9);
+    --glass-tint-b: rgba(255, 255, 255, 0.55);
+    --glass-tint-c: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(15, 23, 42, 0.08);
+    --glass-hairline-border: rgba(15, 23, 42, 0.22);
+    --glass-shadow: 0 20px 44px -26px rgba(15, 23, 42, 0.35);
+    --glass-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 24px -14px rgba(15, 23, 42, 0.22);
+    --input-bg: rgba(255, 255, 255, 0.75);
+    --edge-subtle: rgba(15, 23, 42, 0.08);
+    --edge-default: rgba(15, 23, 42, 0.12);
+    --edge-strong: rgba(15, 23, 42, 0.18);
+  }
+
+  html[data-theme='dark'] {
+    /* The dark palette is the default; it is repeated here so the light block
+       above can be overridden explicitly if a user forces the dark theme. */
+    --ink-950: #070710;
+    --ink-900: #0a0a14;
+    --ink-850: #0e0e1a;
+    --ink-800: #13131f;
+    --ink-750: #181826;
+    --ink-700: #1e1e2e;
+    --ink-600: #2a2a3d;
+    --ink-500: #3a3a52;
+    --ink-400: #4a4a68;
+    --ink-300: #6a6a8a;
+
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+
+    --page-bg: #070710;
+    --page-glow-a: rgba(239, 68, 68, 0.1);
+    --page-glow-b: rgba(59, 130, 246, 0.1);
+    --page-glow-c: rgba(168, 85, 247, 0.07);
+    --app-shell: rgba(7, 7, 16, 0.6);
+
+    --glass-body: rgba(9, 9, 20, 0.62);
+    --glass-tint-a: rgba(255, 255, 255, 0.075);
+    --glass-tint-b: rgba(255, 255, 255, 0.022);
+    --glass-tint-c: rgba(255, 255, 255, 0.045);
+    --glass-border: rgba(255, 255, 255, 0.075);
+    --glass-hairline-border: rgba(255, 255, 255, 0.35);
+    --glass-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.85);
+    --glass-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+    --input-bg: rgba(0, 0, 0, 0.3);
+    --edge-subtle: rgba(255, 255, 255, 0.06);
+    --edge-default: rgba(255, 255, 255, 0.08);
+    --edge-strong: rgba(255, 255, 255, 0.12);
+  }
+}
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
@@ -9,20 +149,26 @@
 
   html {
     scroll-behavior: smooth;
+    /* The canvas follows the theme as well, so the page edges never flash the
+       wrong colour while the app shell is loading. */
+    background-color: var(--page-bg);
+    transition: background-color 0.3s ease;
   }
 
   body {
-    @apply bg-ink-950 text-gray-200 font-body antialiased;
+    @apply text-gray-200 font-body antialiased;
     overscroll-behavior: none;
-    /* Prevents elastic overscroll revealing a light background on iOS. */
-    background-color: #070710;
+    /* The page colour comes from the theme variable only. Applying a
+       background utility here as well would fight this declaration. */
+    background-color: var(--page-bg);
     /* The app shell sits on a deep, slightly blue-tinted base so translucent
        panels have something rich to refract. */
     background-image:
-      radial-gradient(1200px 700px at 12% -8%, rgba(239, 68, 68, 0.10), transparent 60%),
-      radial-gradient(1000px 640px at 92% 4%, rgba(59, 130, 246, 0.10), transparent 62%),
-      radial-gradient(900px 600px at 50% 108%, rgba(168, 85, 247, 0.07), transparent 60%);
+      radial-gradient(1200px 700px at 12% -8%, var(--page-glow-a), transparent 60%),
+      radial-gradient(1000px 640px at 92% 4%, var(--page-glow-b), transparent 62%),
+      radial-gradient(900px 600px at 50% 108%, var(--page-glow-c), transparent 60%);
     background-attachment: fixed;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   ::selection {
@@ -148,18 +294,18 @@
     background:
       linear-gradient(
         155deg,
-        rgba(255, 255, 255, 0.075) 0%,
-        rgba(255, 255, 255, 0.022) 38%,
-        rgba(255, 255, 255, 0.045) 100%
+        var(--glass-tint-a) 0%,
+        var(--glass-tint-b) 38%,
+        var(--glass-tint-c) 100%
       ),
-      rgba(9, 9, 20, 0.62);
+      var(--glass-body);
     -webkit-backdrop-filter: blur(28px) saturate(170%);
     backdrop-filter: blur(28px) saturate(170%);
-    border: 1px solid rgba(255, 255, 255, 0.075);
+    border: 1px solid var(--glass-border);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.09),
       inset 0 -1px 0 rgba(255, 255, 255, 0.03),
-      0 24px 48px -28px rgba(0, 0, 0, 0.85);
+      var(--glass-shadow);
   }
 
   /* A gradient hairline border: the gradient is painted on the border box and
@@ -168,8 +314,8 @@
   .glass-hairline {
     position: relative;
     background:
-      linear-gradient(155deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025) 40%),
-      rgba(9, 9, 20, 0.6);
+      linear-gradient(155deg, var(--glass-tint-a), var(--glass-tint-b) 40%),
+      var(--glass-body);
     border: 1px solid transparent;
     background-clip: padding-box, border-box;
     -webkit-backdrop-filter: blur(24px) saturate(160%);
@@ -183,7 +329,7 @@
     padding: 1px;
     background: linear-gradient(
       140deg,
-      rgba(255, 255, 255, 0.35),
+      var(--glass-hairline-border),
       rgba(255, 255, 255, 0.04) 35%,
       rgba(120, 160, 255, 0.16) 70%,
       rgba(255, 255, 255, 0.05)

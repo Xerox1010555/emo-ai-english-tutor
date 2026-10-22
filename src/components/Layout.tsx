@@ -19,6 +19,7 @@ export type TabId =
   | 'exam'
   | 'scenario'
   | 'league'
+  | 'year'
   | 'admin'
   | 'settings'
   | 'quiz';

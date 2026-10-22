@@ -1,0 +1,661 @@
+/* ————— أساسيات ————— */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #818cf8;
+  --primary-strong: #6366f1;
+  --text: #f1f5f9;
+  --text-muted: rgba(241, 245, 249, 0.55);
+  --error: #fca5a5;
+  --success: #4ade80;
+  --radius: 22px;
+  /* زاوية ميل الكارت بتتغير من الجافاسكريبت (3D) */
+  --ry: 0deg;
+  --rx: 0deg;
+  /* مكان المؤشور جوا الكارت (نسبة مئوية) للبريق */
+  --mx: 50%;
+  --my: 50%;
+}
+
+html, body { min-height: 100%; }
+
+body {
+  font-family: "Cairo", system-ui, sans-serif;
+  color: var(--text);
+  background: linear-gradient(135deg, #070b16 0%, #0d1330 55%, #1a1040 100%);
+  overflow-x: hidden;
+}
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ————— الخلفية المتحركة ————— */
+.bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* مرايا ضوئية ضخمة بتطفو ببطء */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.orb1 {
+  width: 480px; height: 480px;
+  background: radial-gradient(circle, #4f46e5, transparent 70%);
+  top: -140px; inset-inline-end: -100px;
+  animation: drift1 18s ease-in-out infinite alternate;
+}
+
+.orb2 {
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, #db2777, transparent 70%);
+  bottom: -120px; inset-inline-start: -120px;
+  animation: drift2 22s ease-in-out infinite alternate;
+}
+
+.orb3 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, #06b6d4, transparent 70%);
+  top: 55%; inset-inline-start: 55%;
+  animation: drift3 26s ease-in-out infinite alternate;
+}
+
+@keyframes drift1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-70px, 60px) scale(1.15); }
+}
+@keyframes drift2 {
+  from { transform: translate(0, 0) scale(1.1); }
+  to   { transform: translate(60px, -70px) scale(1); }
+}
+@keyframes drift3 {
+  from { transform: translate(-40px, 40px) scale(1); }
+  to   { transform: translate(50px, -50px) scale(1.2); }
+}
+
+/* شبكة أرضية بمنظور 3D بتتحرك جوّه زي مستوى عائم */
+.grid {
+  position: absolute;
+  inset-inline: 0; bottom: -20%; height: 70%;
+  background-image:
+    linear-gradient(rgba(129, 140, 248, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(129, 140, 248, 0.18) 1px, transparent 1px);
+  background-size: 46px 46px;
+  transform: perspective(600px) rotateX(62deg);
+  transform-origin: top;
+  mask-image: linear-gradient(to bottom, transparent, #000 30%, transparent 95%);
+  animation: gridmove 3.2s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes gridmove {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 46px, 46px 0; }
+}
+
+/* جزيئات نور بتطلع فوق */
+.particle {
+  position: absolute;
+  bottom: -12px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 12px 2px rgba(129, 140, 248, 0.8);
+  animation: rise-fade linear infinite;
+}
+
+.p1 { inset-inline-start: 12%; animation-duration: 11s; animation-delay: 0s;    }
+.p2 { inset-inline-start: 28%; animation-duration: 14s; animation-delay: 2.5s;  scale: 1.4; }
+.p3 { inset-inline-start: 47%; animation-duration: 9s;  animation-delay: 1s;    }
+.p4 { inset-inline-start: 63%; animation-duration: 16s; animation-delay: 4s;    scale: 1.3; }
+.p5 { inset-inline-start: 78%; animation-duration: 12s; animation-delay: 6s;    }
+.p6 { inset-inline-start: 90%; animation-duration: 10s; animation-delay: 3s;    scale: 0.8; }
+
+@keyframes rise-fade {
+  0%   { transform: translateY(0) translateX(0);        opacity: 0; }
+  8%   { opacity: 0.9; }
+  50%  { transform: translateY(-40vh) translateX(18px); }
+  100% { transform: translateY(-92vh) translateX(-14px); opacity: 0; }
+}
+
+/* ————— المشهد بتاع 3D ————— */
+.scene {
+  perspective: 1200px;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+/* ————— الكارت الزجاجي ————— */
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 450px;
+  padding: 44px 36px 30px;
+  border-radius: var(--radius);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03) 55%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 30px 70px rgba(4, 8, 24, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.2s ease-out;
+  animation: card-in 0.9s cubic-bezier(0.22, 1, 0.3, 1) both;
+  will-change: transform;
+}
+
+/* مهم: أنيميشن الدخول يستخدم translate/scale المُستقلين
+   عشان ما يغطّيش على transform بتاع ميل الـ 3D */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    translate: 0 60px;
+    scale: 0.92;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+/* بريق بيمشي على حرف الكارت العلوية */
+.shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    130deg,
+    rgba(255, 255, 255, 0.55),
+    rgba(129, 140, 248, 0.25) 30%,
+    transparent 55%,
+    rgba(219, 39, 119, 0.35) 85%,
+    rgba(255, 255, 255, 0.4)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* لمعان بيتبع المؤشر */
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    340px circle at var(--mx) var(--my),
+    rgba(255, 255, 255, 0.12),
+    transparent 65%
+  );
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+/* ————— الهيدر ————— */
+/* parallax جوّه الكارت مع حركة الماوس */
+.card__header {
+  text-align: center;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 1;
+  transform: translateZ(8px) translateX(calc((var(--mx) - 50%) * -0.06));
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.3, 1);
+}
+
+.logo {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #a855f7 60%, #ec4899);
+  box-shadow:
+    0 14px 34px rgba(99, 102, 241, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  animation: logo-bob 5s ease-in-out infinite;
+}
+
+.logo svg { width: 32px; height: 32px; }
+
+@keyframes logo-bob {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50%      { transform: translateY(-7px) rotate(2deg); }
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  background: linear-gradient(120deg, #fff, #c7d2fe 55%, #f0abfc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.card__header p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  margin-top: 5px;
+}
+
+/* ————— الحقول ————— */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  /* ظهور متدرج بالتتالي */
+  animation: rise 0.7s ease both;
+  animation-delay: calc(var(--i) * 110ms + 250ms);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.field label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding-inline-start: 2px;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.forgot {
+  font-size: 0.8rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.forgot:hover { color: #c7d2fe; text-shadow: 0 0 14px rgba(129, 140, 248, 0.7); }
+
+.input-wrap { position: relative; }
+
+.input-wrap .icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.input-wrap input {
+  width: 100%;
+  height: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0 44px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.25s, background 0.25s;
+}
+
+.input-wrap input::placeholder { color: rgba(241, 245, 249, 0.35); }
+
+.input-wrap input:focus {
+  outline: none;
+  border-color: rgba(129, 140, 248, 0.8);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 4px rgba(99, 102, 241, 0.18),
+    0 8px 24px rgba(99, 102, 241, 0.25);
+}
+
+.input-wrap input:focus ~ .icon { color: var(--primary); }
+
+/* زر إظهار/إخفاء كلمة المرور */
+.toggle {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.toggle:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.toggle svg { width: 19px; height: 19px; }
+
+/* حالات الخطأ والصحة */
+.field.invalid .input-wrap input {
+  border-color: rgba(252, 165, 165, 0.65);
+  background: rgba(239, 68, 68, 0.12);
+  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.12);
+}
+
+.field.invalid .icon { color: var(--error); }
+
+.field.valid .input-wrap input {
+  border-color: rgba(74, 222, 128, 0.55);
+}
+
+.error-msg {
+  display: none;
+  color: var(--error);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-shadow: 0 0 16px rgba(252, 165, 165, 0.35);
+}
+
+.field.invalid .error-msg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  animation: shake 0.35s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+}
+
+.hint {
+  color: rgba(241, 245, 249, 0.35);
+  font-size: 0.78rem;
+  display: none;
+}
+
+.field:not(.valid):not(.invalid) .hint { display: block; }
+
+/* ————— تذكرني ————— */
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  animation: rise 0.7s ease both 0.58s;
+}
+
+input[type="checkbox"]#remember { display: none; }
+
+.checkbox-ui {
+  width: 19px;
+  height: 19px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  display: inline-grid;
+  place-items: center;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.remember input:checked + .checkbox-ui {
+  background: var(--primary-strong);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.65);
+}
+
+.remember input:checked + .checkbox-ui::after {
+  content: "";
+  width: 5px; height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+/* ————— زر الدخول ————— */
+.submit {
+  position: relative;
+  overflow: hidden;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #6366f1, #a855f7 55%, #ec4899);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow:
+    0 14px 34px rgba(99, 102, 241, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.18s ease, box-shadow 0.25s, filter 0.25s;
+  margin-top: 4px;
+  animation: rise 0.7s ease both 0.72s;
+}
+
+/* لمعة بتعدّي على الزر */
+.submit::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline-start: -80%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(20deg);
+  animation: sweep 3.4s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0%, 60%  { inset-inline-start: -80%; }
+  100%     { inset-inline-start: 150%; }
+}
+
+.submit:hover {
+  filter: brightness(1.12);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow:
+    0 18px 44px rgba(99, 102, 241, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.submit:active { transform: translateY(1px) scale(0.99); }
+.submit:disabled { opacity: 0.7; cursor: not-allowed; transform: none; filter: none; }
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ————— رسالة النجاح ————— */
+.success {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  box-shadow: 0 0 30px rgba(74, 222, 128, 0.12);
+  backdrop-filter: blur(10px);
+  animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.success svg {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: #063;
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  border-radius: 50%;
+  padding: 5px;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.6);
+  animation: check-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes check-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(74, 222, 128, 0.5); }
+  50%      { box-shadow: 0 0 26px rgba(74, 222, 128, 0.85); }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.success strong { display: block; font-size: 0.92rem; color: #d9f99d; }
+.success span { font-size: 0.8rem; color: rgba(163, 253, 192, 0.75); }
+
+/* ————— الفوتر ————— */
+.card__footer {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  position: relative;
+  z-index: 1;
+  animation: rise 0.7s ease both 0.85s;
+}
+
+.card__footer a {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.card__footer a:hover {
+  color: #c7d2fe;
+  text-shadow: 0 0 14px rgba(129, 140, 248, 0.7);
+}
+
+/* ————— موبايل ————— */
+@media (max-width: 480px) {
+  .card { padding: 34px 22px 24px; }
+  .orb { filter: blur(60px); opacity: 0.45; }
+}
+
+/* ————— احترام تقليل الحركة ————— */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ————————————————————————————————
+   صفحة التسجيل (Signup) — إضافات
+———————————————————————————————— */
+
+/* صف الشروط: التسمية والرياية والرابط في سطر مرن */
+.terms {
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+/* ————— مؤشر قوة كلمة المرور ————— */
+.strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: rise 0.4s ease both;
+}
+
+.strength .bars {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+
+.strength .bar {
+  height: 5px;
+  flex: 1;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 0.35s, box-shadow 0.35s;
+}
+
+.strength .label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: color 0.35s;
+}
+
+/* ضعيفة: شريط احمر واحد */
+.strength[data-level="weak"] .bar:first-child {
+  background: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+}
+.strength[data-level="weak"] .label { color: #fca5a5; }
+
+/* متوسطة: شريطين برتقالي */
+.strength[data-level="medium"] .bar:nth-child(-n+2) {
+  background: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+.strength[data-level="medium"] .label { color: #fcd34d; }
+
+/* قوية: التلاتة اخضر */
+.strength[data-level="strong"] .bar {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.65);
+}
+.strength[data-level="strong"] .label { color: #86efac; }

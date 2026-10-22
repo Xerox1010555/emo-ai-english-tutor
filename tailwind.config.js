@@ -9,17 +9,32 @@ export default {
         body: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // The ink and gray scales point at CSS variables, so the light and
+        // dark themes are a variable swap — no component has to know which
+        // theme is active. The gray scale inverts between the two.
         ink: {
-          950: '#070710',
-          900: '#0a0a14',
-          850: '#0e0e1a',
-          800: '#13131f',
-          750: '#181826',
-          700: '#1e1e2e',
-          600: '#2a2a3d',
-          500: '#3a3a52',
-          400: '#4a4a68',
-          300: '#6a6a8a',
+          950: 'var(--ink-950)',
+          900: 'var(--ink-900)',
+          850: 'var(--ink-850)',
+          800: 'var(--ink-800)',
+          750: 'var(--ink-750)',
+          700: 'var(--ink-700)',
+          600: 'var(--ink-600)',
+          500: 'var(--ink-500)',
+          400: 'var(--ink-400)',
+          300: 'var(--ink-300)',
+        },
+        gray: {
+          50: 'var(--gray-50)',
+          100: 'var(--gray-100)',
+          200: 'var(--gray-200)',
+          300: 'var(--gray-300)',
+          400: 'var(--gray-400)',
+          500: 'var(--gray-500)',
+          600: 'var(--gray-600)',
+          700: 'var(--gray-700)',
+          800: 'var(--gray-800)',
+          900: 'var(--gray-900)',
         },
         primary: {
           50: '#fef2f2',
@@ -51,15 +66,15 @@ export default {
         // Semantic surfaces. These are the tokens components should reference so
         // the palette can be retuned in one place.
         surface: {
-          base: '#070710',
-          raised: '#0e0e1a',
-          overlay: '#13131f',
-          input: 'rgba(0, 0, 0, 0.3)',
+          base: 'var(--page-bg)',
+          raised: 'var(--ink-900)',
+          overlay: 'var(--ink-800)',
+          input: 'var(--input-bg)',
         },
         edge: {
-          subtle: 'rgba(255, 255, 255, 0.06)',
-          default: 'rgba(255, 255, 255, 0.08)',
-          strong: 'rgba(255, 255, 255, 0.12)',
+          subtle: 'var(--edge-subtle)',
+          default: 'var(--edge-default)',
+          strong: 'var(--edge-strong)',
         },
         content: {
           primary: '#ffffff',

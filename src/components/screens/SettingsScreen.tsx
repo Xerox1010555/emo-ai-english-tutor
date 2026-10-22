@@ -8,6 +8,7 @@ import {
   Moon,
   RotateCcw,
   Smartphone,
+  Sun,
   Target,
   Plus,
   X,
@@ -26,6 +27,7 @@ import { useNotifications } from '@/context/NotificationContext';
 import { useTutor } from '@/context/TutorContext';
 import { aiProviders, resolveProvider } from '@/lib/ai/provider';
 import { useI18n } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
 import type { TabId } from '@/components/Layout';
 import {
   isPushSubscribed,
@@ -68,6 +70,7 @@ export function SettingsScreen({ onNavigate }: { onNavigate?: (tab: TabId) => vo
   );
 
   const { language: uiLanguage, setLanguage: setUiLanguage, t } = useI18n();
+  const { theme, setTheme, isLight } = useTheme();
 
   // Is this device already subscribed to push?
   useEffect(() => {
@@ -512,6 +515,55 @@ export function SettingsScreen({ onNavigate }: { onNavigate?: (tab: TabId) => vo
               browser settings, then turn reminders back on here.
             </div>
           )}
+        </Card>
+      </div>
+
+      {/* Appearance */}
+      <div>
+        <SectionHeader title="Appearance" />
+        <Card className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {isLight ? (
+                <Sun className="w-4 h-4 text-warning-400 flex-shrink-0" />
+              ) : (
+                <Moon className="w-4 h-4 text-accent-400 flex-shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm text-gray-300">Theme</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {isLight
+                    ? 'Light — a bright, calm interface.'
+                    : 'Dark — easier on the eyes at night.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-1 p-1 rounded-xl bg-black/25 border border-white/[0.06] flex-shrink-0">
+              {(
+                [
+                  { id: 'dark', label: 'Dark', Icon: Moon },
+                  { id: 'light', label: 'Light', Icon: Sun },
+                ] as const
+              ).map((option) => {
+                const active = theme === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => setTheme(option.id)}
+                    aria-pressed={active}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      active
+                        ? 'bg-primary-500/20 text-primary-300 border border-primary-500/25'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <option.Icon className="w-3.5 h-3.5" />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </Card>
       </div>
 

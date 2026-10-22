@@ -35,6 +35,12 @@ import {
   streakState,
   type ChallengeKind,
 } from '../src/lib/learning/challenges';
+import { GRAMMAR_POINTS, VOCAB_THEMES } from '../src/lib/content/bank';
+import {
+  composeLesson,
+  dayOfYear,
+  LESSONS_PER_YEAR,
+} from '../src/lib/content/composer';
 import {
   EXAMS,
   cefrForBand,
@@ -1025,6 +1031,72 @@ check(
 check(
   'without a freeze there is no rescue',
   streakState('2026-10-19', '2026-10-21', 0).canFreeze === false,
+);
+
+// ------------------------------------------------ regression: the year plan ----
+section('The 365-lesson year plan');
+
+check('the grammar bank is deep enough', GRAMMAR_POINTS.length >= 60, String(GRAMMAR_POINTS.length));
+check('the vocabulary bank is deep enough', VOCAB_THEMES.length >= 20, String(VOCAB_THEMES.length));
+check(
+  'every grammar point has a rule, a mistake and a fix',
+  GRAMMAR_POINTS.every((p) => p.rule.length > 20 && p.mistake.length > 5 && p.fix.length > 5),
+);
+check(
+  'every grammar point has at least two examples',
+  GRAMMAR_POINTS.every((p) => p.examples.length >= 2),
+);
+check(
+  'every grammar point has a drill with an answer',
+  GRAMMAR_POINTS.every((p) => p.drill.length > 5 && p.answer.length > 0),
+);
+check(
+  'every vocabulary theme has six words with examples',
+  VOCAB_THEMES.every((t) => t.words.length === 6 && t.words.every((w) => w.example.length > 5)),
+);
+
+// The composer: 365 days, six skills, all different.
+const planSkills = [
+  'Grammar',
+  'Vocabulary',
+  'Listening',
+  'Speaking',
+  'Writing',
+  'Reading',
+] as const;
+const dayOne = planSkills.map((skill) => composeLesson(skill, 1, 'B1', 'user-1'));
+const dayTwo = planSkills.map((skill) => composeLesson(skill, 2, 'B1', 'user-1'));
+
+check('a day produces a lesson for every skill', dayOne.length === 6);
+check('every composed lesson has content', dayOne.every((l) => l.content.length > 150));
+check('every composed lesson has a drill', dayOne.every((l) => l.drill.prompt.length > 10));
+check(
+  'the lesson is deterministic',
+  composeLesson('Grammar', 5, 'B1', 'user-1').title ===
+    composeLesson('Grammar', 5, 'B1', 'user-1').title,
+);
+check(
+  'different days give different lessons',
+  dayOne.map((l) => l.title).join('|') !== dayTwo.map((l) => l.title).join('|'),
+);
+check(
+  'a learner at A1 does not get C2 material',
+  composeLesson('Grammar', 1, 'A1', 'user-1').content !==
+    composeLesson('Grammar', 1, 'C2', 'user-1').content,
+);
+check('the year has 365 days', LESSONS_PER_YEAR === 365);
+check('the day of the year is in range', dayOfYear(new Date(2026, 0, 1)) === 1);
+check('the day of the year wraps', dayOfYear(new Date(2027, 0, 1)) === 1);
+
+// Over a full year the plan must not repeat the same lesson every day.
+const wholeYear = Array.from({ length: LESSONS_PER_YEAR }, (_, i) =>
+  composeLesson('Grammar', i + 1, 'B1', 'user-1').title,
+);
+const uniqueDays = new Set(wholeYear).size;
+check(
+  'the year does not repeat one lesson every day',
+  uniqueDays >= 30,
+  String(uniqueDays),
 );
 
 // --------------------------------------------------------------- summary ----

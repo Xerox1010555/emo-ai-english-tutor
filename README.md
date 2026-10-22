@@ -118,6 +118,18 @@ The mode also changes reminder wording.
 
 ## Features
 
+- **Light and dark themes** — the whole palette lives in CSS variables, and
+  Tailwind's ink/gray scales point at them, so a theme switch is a variable
+  swap and no component knows which theme is active. The gray scale inverts
+  between the two (light text on a dark surface, dark text on a light one).
+  The theme follows the system preference on first run and is remembered.
+- **365 lessons for every skill** — a year-long curriculum. A deep bank of
+  real teaching material (70+ grammar points with rules, examples, the
+  classic mistake and the fix; 30 vocabulary themes) is composed into a
+  lesson per skill per day of the year, written for the learner's level. The
+  composer is deterministic, so the same learner gets the same lesson on the
+  same day — and a different one tomorrow. The "Your year" screen shows the
+  position in the year and today's lesson for all six skills.
 - **Hourly drill** — a five-minute micro-point that rotates every hour
   (grammar, vocabulary, a natural phrase, a listening line, a better
   sentence). Deterministic per learner and hour: it is stable while you are in

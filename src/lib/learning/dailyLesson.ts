@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
-import { getLessonForLevel } from '@/lib/lessonData';
 import { generateLesson } from '@/lib/ai/content';
+import { composeLesson, dayOfYear } from '@/lib/content/composer';
 import type { CEFRLevel, DailyLesson, Skill } from '@/lib/types';
 
 /**
@@ -82,18 +82,20 @@ async function createDailyLesson(params: EnsureLessonParams): Promise<DailyLesso
     vocab = generated.vocab;
     source = 'ai';
   } else {
-    // Curated fallback. Deterministic per learner per day, and never a level
-    // further away than the nearest one that has content for the skill.
-    const lesson = getLessonForLevel(
+    // Curated fallback, built by the composer from the year-long content
+    // bank: one lesson per skill per day of the year, written for this
+    // learner's level.
+    const composed = composeLesson(
+      params.skill ?? 'Grammar',
+      dayOfYear(),
       level,
-      params.skill ?? undefined,
-      `${userId}:${date}`,
+      userId,
     );
-    title = lesson.title;
-    skill = lesson.skill;
-    content = lesson.content;
-    durationMinutes = lesson.durationMinutes;
-    vocab = lesson.vocab ?? [];
+    title = composed.title;
+    skill = composed.skill;
+    content = composed.content;
+    durationMinutes = composed.durationMinutes;
+    vocab = composed.vocab;
     source = 'bank';
   }
 

@@ -5,20 +5,23 @@ import { AuthProvider } from './context/AuthContext.tsx';
 import { TutorProvider } from './context/TutorContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
 import { I18nProvider } from './lib/i18n/index.tsx';
+import { ThemeProvider } from './lib/theme.tsx';
 import { registerServiceWorker } from './lib/notifications/push';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <I18nProvider>
-      <AuthProvider>
-        <TutorProvider>
-          <NotificationProvider>
-            <App />
-          </NotificationProvider>
-        </TutorProvider>
-      </AuthProvider>
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <TutorProvider>
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
+          </TutorProvider>
+        </AuthProvider>
+      </I18nProvider>
+    </ThemeProvider>
   </StrictMode>,
 );
 
