@@ -14,7 +14,11 @@ interface AuthContextValue {
   profileLoading: boolean;
   /** Set when the profile could not be loaded or created. */
   profileError: string | null;
-  signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>;
+  signUp: (
+    email: string,
+    password: string,
+    name?: string,
+  ) => Promise<{ error: string | null; needsConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -166,8 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+  async function signUp(email: string, password: string, name?: string) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      // The name goes into the auth metadata, so it is available everywhere
+      // without another column.
+      options: name ? { data: { full_name: name } } : undefined,
+    });
     if (error) return { error: error.message };
 
     // With email confirmation enabled there is no session yet. The UI has to

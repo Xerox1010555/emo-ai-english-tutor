@@ -36,6 +36,8 @@ import {
   type ChallengeKind,
 } from '../src/lib/learning/challenges';
 import { GRAMMAR_POINTS, VOCAB_THEMES } from '../src/lib/content/bank';
+import { hourSlot, nextHourSlot } from '../src/lib/content/hourSlot';
+import { rateForLevel } from '../src/lib/speech';
 import {
   composeLesson,
   dayOfYear,
@@ -1097,6 +1099,34 @@ check(
   'the year does not repeat one lesson every day',
   uniqueDays >= 30,
   String(uniqueDays),
+);
+
+// -------------------------------------------------- regression: speech & slots ----
+section('Speech pacing and hourly slots');
+
+check('a beginner hears a slower pace', rateForLevel('A1') < rateForLevel('B2'));
+check('an advanced learner hears a faster pace', rateForLevel('C2') > rateForLevel('B1'));
+check(
+  'the level pace stays in a speakable range',
+  rateForLevel('A1') >= 0.5 && rateForLevel('A1') <= 1.6,
+);
+check(
+  'the speed setting scales the pace',
+  Math.abs(rateForLevel('B1', 1.5) - rateForLevel('B1') * 1.5) < 0.001,
+);
+check(
+  'an extreme speed is clamped',
+  rateForLevel('B1', 9) <= 1.6 && rateForLevel('B1', 0.1) >= 0.5,
+);
+
+check('the hour slot is local', hourSlot(new Date(2026, 9, 21, 14, 30)) === '2026-10-21T14');
+check(
+  'the next hour rolls over midnight',
+  nextHourSlot(new Date(2026, 9, 21, 23, 40)) === '2026-10-22T00',
+);
+check(
+  'the next hour is one hour later in the morning',
+  nextHourSlot(new Date(2026, 9, 21, 9, 5)) === '2026-10-21T10',
 );
 
 // --------------------------------------------------------------- summary ----

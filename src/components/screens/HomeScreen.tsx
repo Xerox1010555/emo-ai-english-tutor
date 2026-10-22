@@ -25,12 +25,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { supabase } from '@/lib/supabase';
-import { ensureDailyLesson } from '@/lib/learning/dailyLesson';
+import { ensureDailyLesson, prepareNextHour } from '@/lib/learning/dailyLesson';
+import { hourSlot } from '@/lib/content/hourSlot';
 import { buildRoadmap, currentStage } from '@/lib/learning/roadmap';
 import { todayKey } from '@/lib/learning/profile';
 import { useDailyQuests } from '@/lib/learning/useDailyQuests';
 import { loadDueVocab } from '@/lib/learning/vocab';
 import { drillForSlot } from '@/lib/learning/hourlyDrill';
+import { speak as speakText } from '@/lib/speech';
 import { useI18n } from '@/lib/i18n';
 import type { ConversationMessage, DailyLesson } from '@/lib/types';
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -93,11 +95,13 @@ export function Home({ onNavigate }: HomeProps) {
 
   const loadTodayLesson = useCallback(async () => {
     if (!user) return;
-    // One shared writer for "today's lesson" — Home and Roadmap both read it,
-    // so the learner can never end up with two lessons for one day.
+    // One shared writer for "this hour's lesson" — Home and Roadmap both read
+    // it, so the learner can never end up with two lessons for one slot.
+    const slot = hourSlot();
     const lesson = await ensureDailyLesson({
       userId: user.id,
       date,
+      slot,
       level: profile?.current_level ?? 'A1',
       skill: profileSnapshot.weaknesses[0] ?? null,
       weakSkills: profileSnapshot.weaknesses,
@@ -107,6 +111,18 @@ export function Home({ onNavigate }: HomeProps) {
 
     setTodayLesson(lesson);
     setLessonError(!lesson);
+
+    // Quietly write the next hour's lesson with the model, so the hour turns
+    // into something new without the learner ever waiting.
+    void prepareNextHour({
+      userId: user.id,
+      date,
+      level: profile?.current_level ?? 'A1',
+      skill: profileSnapshot.weaknesses[0] ?? null,
+      weakSkills: profileSnapshot.weaknesses,
+      goals: profile?.learning_goals ?? [],
+      language: profile?.preferred_language === 'en' ? 'en' : 'ar',
+    });
   }, [user, date, profile?.current_level, profile?.learning_goals, profile?.preferred_language, profileSnapshot.weaknesses]);
 
   const loadLastMessage = useCallback(async () => {
@@ -320,12 +336,7 @@ export function Home({ onNavigate }: HomeProps) {
             <p className="text-sm text-gray-200 leading-relaxed">{drill.prompt}</p>
             {drill.spoken && (
               <button
-                onClick={() => {
-                  const utterance = new SpeechSynthesisUtterance(drill.spoken!);
-                  utterance.lang = 'en-US';
-                  utterance.rate = 0.92;
-                  window.speechSynthesis.speak(utterance);
-                }}
+                onClick={() => speakText(drill.spoken!, { level: profile?.current_level })}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-500/12 border border-primary-500/25 text-primary-300 text-xs font-semibold hover:bg-primary-500/20 transition-colors"
               >
                 <Volume2 className="w-3.5 h-3.5" /> Play it

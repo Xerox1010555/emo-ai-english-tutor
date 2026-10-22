@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
 import { supabase } from '@/lib/supabase';
 import { ensureDailyLesson } from '@/lib/learning/dailyLesson';
+import { hourSlot } from '@/lib/content/hourSlot';
 import { saveVocab } from '@/lib/learning/vocab';
 import { buildRoadmap, currentStage, type RoadmapStage } from '@/lib/learning/roadmap';
 import { generatePlan } from '@/lib/planGenerator';
@@ -68,10 +69,11 @@ export function RoadmapScreen({ onNavigate }: RoadmapScreenProps) {
     }
     const date = todayKey();
 
-    // Same shared writer the Home screen uses — one lesson per day, always.
+    // Same shared writer the Home screen uses — one lesson per hour, always.
     const lesson = await ensureDailyLesson({
       userId: user.id,
       date,
+      slot: hourSlot(),
       level: profile?.current_level ?? 'A1',
       skill: profileSnapshot.weaknesses[0] ?? null,
       weakSkills: profileSnapshot.weaknesses,

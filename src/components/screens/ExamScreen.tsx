@@ -28,6 +28,7 @@ import {
 } from '@/lib/learning/exams';
 import { gradeWriting, saveExamResult } from '@/lib/ai/grading';
 import { speakingAttemptPassed } from '@/lib/learning/speech';
+import { speak as speakText } from '@/lib/speech';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageHeader, Pill, SectionHeader } from '@/components/ui/primitives';
@@ -362,12 +363,9 @@ export function ExamScreen() {
         >
           {question.spoken && (
             <button
-              onClick={() => {
-                const utterance = new SpeechSynthesisUtterance(question.spoken!);
-                utterance.lang = 'en-US';
-                utterance.rate = 0.92;
-                window.speechSynthesis.speak(utterance);
-              }}
+              onClick={() =>
+                speakText(question.spoken!, { level: profile?.current_level })
+              }
               className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-primary-500/12 border border-primary-500/25 text-primary-300 text-sm font-semibold hover:bg-primary-500/20 transition-colors"
             >
               <Volume2 className="w-4 h-4" /> Play the audio

@@ -4,6 +4,7 @@ import { AlertCircle, Send, Mic, Volume2, Trash2, Sparkles, Cpu } from 'lucide-r
 import { useAuth } from '@/context/AuthContext';
 import { useTutor } from '@/context/TutorContext';
 import { useI18n } from '@/lib/i18n';
+import { speak as speakText } from '@/lib/speech';
 import { supabase } from '@/lib/supabase';
 import { askTutor, toTutorTurns } from '@/lib/ai/client';
 import type { AiCorrection } from '@/lib/ai/types';
@@ -220,11 +221,7 @@ export function ChatScreen() {
 
   function speak(text: string) {
     if (!ttsSupported) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.92;
-    window.speechSynthesis.speak(utterance);
+    speakText(text, { level: profile?.current_level });
   }
 
   function toggleRecording() {

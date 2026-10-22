@@ -10,6 +10,7 @@ import {
   Smartphone,
   Sun,
   Target,
+  Volume2,
   Plus,
   X,
   Cpu,
@@ -28,6 +29,13 @@ import { useTutor } from '@/context/TutorContext';
 import { aiProviders, resolveProvider } from '@/lib/ai/provider';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
+import {
+  englishVoices,
+  loadSpeechSettings,
+  saveSpeechSettings,
+  speak as speakText,
+  type SpeechSettings,
+} from '@/lib/speech';
 import type { TabId } from '@/components/Layout';
 import {
   isPushSubscribed,
@@ -71,6 +79,17 @@ export function SettingsScreen({ onNavigate }: { onNavigate?: (tab: TabId) => vo
 
   const { language: uiLanguage, setLanguage: setUiLanguage, t } = useI18n();
   const { theme, setTheme, isLight } = useTheme();
+  const [speech, setSpeech] = useState<SpeechSettings>(() => loadSpeechSettings());
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // The list of voices loads asynchronously in most browsers.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const load = () => setVoices(englishVoices());
+    load();
+    window.speechSynthesis.addEventListener('voiceschanged', load);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
+  }, []);
 
   // Is this device already subscribed to push?
   useEffect(() => {
@@ -564,6 +583,85 @@ export function SettingsScreen({ onNavigate }: { onNavigate?: (tab: TabId) => vo
               })}
             </div>
           </div>
+        </Card>
+      </div>
+
+      {/* Voice */}
+      <div>
+        <SectionHeader title="Voice" />
+        <Card className="space-y-3.5">
+          <div className="flex items-center gap-2.5">
+            <Volume2 className="w-4 h-4 text-accent-400 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-gray-300">Tutor voice</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                The pace follows your level. A beginner hears every word; an advanced
+                learner hears the natural rhythm.
+              </p>
+            </div>
+          </div>
+
+          {voices.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-400">Voice</label>
+              <select
+                value={speech.voice}
+                onChange={(e) => {
+                  const next = { ...speech, voice: e.target.value };
+                  setSpeech(next);
+                  saveSpeechSettings(next);
+                  speakText('This is how I will read your lessons.', {
+                    level: currentLevel,
+                    speed: next.speed,
+                  });
+                }}
+                className="w-full px-3 py-2.5 bg-[var(--input-bg)] border border-white/[0.07] rounded-xl text-white text-sm focus:outline-none focus:border-primary-500/45"
+              >
+                <option value="auto">Automatic (best available)</option>
+                {voices.map((voice) => (
+                  <option key={voice.name} value={voice.name}>
+                    {voice.name} ({voice.lang})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-400">Speed</label>
+              <span className="text-[11px] text-gray-500 tabular-nums">
+                {speech.speed.toFixed(2)}×
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.7}
+              max={1.3}
+              step={0.05}
+              value={speech.speed}
+              onChange={(e) => {
+                const next = { ...speech, speed: Number(e.target.value) };
+                setSpeech(next);
+                saveSpeechSettings(next);
+              }}
+              className="w-full"
+            />
+          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            fullWidth
+            onClick={() =>
+              speakText('Good morning. Today we will work on your English together.', {
+                level: currentLevel,
+                speed: speech.speed,
+              })
+            }
+          >
+            <Volume2 className="w-4 h-4" /> Hear a sample
+          </Button>
         </Card>
       </div>
 

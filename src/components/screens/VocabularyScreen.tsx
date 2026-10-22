@@ -19,6 +19,7 @@ import {
   loadVocabDeck,
   saveVocab,
 } from '@/lib/learning/vocab';
+import { speak as speakText } from '@/lib/speech';
 import type { VocabItem } from '@/lib/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -33,7 +34,7 @@ interface VocabularyScreenProps {
 type Phase = 'browse' | 'review';
 
 export function VocabularyScreen({ onNavigate }: VocabularyScreenProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { t } = useI18n();
   const [deck, setDeck] = useState<VocabItem[]>([]);
   const [due, setDue] = useState<VocabItem[]>([]);
@@ -110,12 +111,7 @@ export function VocabularyScreen({ onNavigate }: VocabularyScreenProps) {
   }
 
   function speak(text: string) {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+    speakText(text, { level: profile?.current_level });
   }
 
   if (loading) {

@@ -1,37 +1,65 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { useI18n } from '@/lib/i18n';
-import { useTheme } from '@/lib/theme';
-import { Button } from '@/components/ui/Button';
-import { MeshBackground } from '@/components/ui/MeshBackground';
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   Lock,
   Mail,
   Moon,
   Sparkles,
   Sun,
+  User,
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
+import { Button } from '@/components/ui/Button';
 
+/**
+ * The sign-in / sign-up screen.
+ *
+ * The layout follows the standalone Arabic design that shipped with the
+ * project (animated orbs, a 3D card with a moving sheen, a password strength
+ * meter) but it runs on the REAL Supabase auth, inside the app shell, with
+ * the theme and the interface language working.
+ */
 export function AuthScreen() {
   const { signIn, signUp } = useAuth();
   const { t } = useI18n();
   const { setTheme, isLight } = useTheme();
+
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [terms, setTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const strength = passwordStrength(password);
+
+  function reset() {
+    setError(null);
+    setNotice(null);
+  }
+
+  function switchMode(next: 'signin' | 'signup' | 'forgot') {
+    setMode(next);
+    reset();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setNotice(null);
+    reset();
 
     if (mode === 'forgot') {
       setLoading(true);
@@ -48,31 +76,46 @@ export function AuthScreen() {
       return;
     }
 
+    if (mode === 'signup') {
+      if (name.trim().length < 2) {
+        setError(t('auth.nameError'));
+        return;
+      }
+      if (confirm !== password) {
+        setError(t('auth.confirmError'));
+        return;
+      }
+      if (!terms) {
+        setError(t('auth.termsError'));
+        return;
+      }
+    }
+
     setLoading(true);
-    const fn = mode === 'signin' ? signIn : signUp;
-    const result = await fn(email, password);
+    const result =
+      mode === 'signin'
+        ? await signIn(email, password)
+        : await signUp(email, password, name.trim());
     setLoading(false);
+
     if (result.error) {
       setError(friendlyError(result.error));
       return;
     }
     if ('needsConfirmation' in result && result.needsConfirmation) {
-      setNotice('Account created. Check your inbox to confirm your email, then sign in.');
+      setNotice(t('auth.confirmNotice'));
       setMode('signin');
+      return;
+    }
+    if (mode === 'signup') {
+      setDone(true);
     }
   }
 
-  const benefits = [
-    'A tutor that remembers your mistakes',
-    'One lesson a day, written for your level',
-    'Speaking practice scored word by word',
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      <MeshBackground />
+    <div className="min-h-screen flex flex-col relative overflow-hidden" dir={isArabic() ? 'rtl' : 'ltr'}>
+      <AuthBackdrop />
 
-      {/* Theme switch, always reachable */}
       <button
         onClick={() => setTheme(isLight ? 'dark' : 'light')}
         aria-label={isLight ? 'Switch to dark mode' : 'Switch to light mode'}
@@ -81,178 +124,329 @@ export function AuthScreen() {
         {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
       </button>
 
-      <div className="relative flex-1 flex flex-col justify-center px-6 py-12 max-w-md mx-auto w-full">
-        {/* Brand */}
+      <div className="relative flex-1 flex items-center justify-center px-5 py-10">
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col items-center mb-8"
+          initial={{ opacity: 0, y: 26, rotateX: 8 }}
+          animate={{ opacity: 1, y: 0, rotateX: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="scene w-full max-w-md"
         >
-          <div className="relative mb-5">
-            <motion.div
-              className="w-24 h-24 rounded-[28px] glass-panel depth-3 flex items-center justify-center"
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 via-primary-500 to-primary-700 flex items-center justify-center shadow-glow-primary">
-                <span className="text-3xl font-extrabold text-white font-sans">E</span>
-              </div>
-            </motion.div>
-            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary-500/30 animate-pulse-ring" />
-          </div>
+          <section className="glass-panel rounded-[22px] p-6 sm:p-8 shadow-glass-lg relative overflow-hidden group">
+            {/* The moving sheen, straight from the standalone design. */}
+            <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+              <span className="absolute -top-1/2 -left-1/3 h-[200%] w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shine" />
+            </span>
 
-          <h1 className="text-4xl font-extrabold text-white font-sans tracking-tight text-gradient-brand text-3d">
-            Emo
-          </h1>
-          <p className="text-gray-400 text-sm mt-2 text-center leading-relaxed max-w-xs">
-            {t('auth.tagline')}
-          </p>
-        </motion.div>
-
-        {/* Auth card */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-panel rounded-3xl p-6 shadow-glass-lg"
-        >
-          {mode !== 'forgot' && (
-            <div className="flex gap-2 mb-6 p-1 bg-black/25 rounded-xl border border-white/[0.05]">
-              <button
-                onClick={() => {
-                  setMode('signin');
-                  setError(null);
-                  setNotice(null);
-                }}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  mode === 'signin'
-                    ? 'bg-gradient-to-b from-white/[0.14] to-white/[0.05] text-white border border-white/[0.08]'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
+            {done ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="py-10 text-center space-y-4"
               >
-                {t('auth.signin')}
-              </button>
-              <button
-                onClick={() => {
-                  setMode('signup');
-                  setError(null);
-                  setNotice(null);
-                }}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  mode === 'signup'
-                    ? 'bg-gradient-to-b from-white/[0.14] to-white/[0.05] text-white border border-white/[0.08]'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                {t('auth.signup')}
-              </button>
-            </div>
-          )}
-
-          {mode === 'forgot' && (
-            <div className="mb-5">
-              <h2 className="text-base font-bold text-white">{t('auth.reset')}</h2>
-              <p className="text-xs text-gray-500 mt-1">
-                Enter your email and we will send you a reset link.
-              </p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-gray-400 mb-1.5 block">
-                {t('auth.email')}
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-[var(--input-bg)] border border-white/[0.07] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/50 transition-colors"
-                />
-              </div>
-            </div>
-
-            {mode !== 'forgot' && (
-              <div>
-                <label className="text-xs font-medium text-gray-400 mb-1.5 block">
-                  {t('auth.password')}
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-3 bg-[var(--input-bg)] border border-white/[0.07] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-primary-500/50 transition-colors"
-                  />
+                <div className="w-16 h-16 rounded-2xl bg-success-500/15 border border-success-500/25 flex items-center justify-center mx-auto">
+                  <Check className="w-8 h-8 text-success-300" />
                 </div>
-                {mode === 'signin' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('forgot');
-                      setError(null);
-                      setNotice(null);
-                    }}
-                    className="text-[11px] text-gray-500 hover:text-primary-400 transition-colors mt-1.5 inline-flex items-center gap-1"
-                  >
-                    <KeyRound className="w-3 h-3" /> {t('auth.forgot')}
-                  </button>
+                <div>
+                  <h2 className="text-lg font-bold text-white">{t('auth.createdTitle')}</h2>
+                  <p className="text-sm text-gray-400 mt-1">{t('auth.createdBody')}</p>
+                </div>
+                <Button fullWidth onClick={() => window.location.reload()}>
+                  {t('auth.goToApp')}
+                </Button>
+              </motion.div>
+            ) : (
+              <>
+                <header className="text-center mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-700 flex items-center justify-center mx-auto mb-3 shadow-glow-primary">
+                    <span className="text-2xl font-extrabold text-white font-sans">E</span>
+                  </div>
+                  <h1 className="text-2xl font-extrabold text-white font-sans tracking-tight">
+                    {mode === 'signup'
+                      ? t('auth.createAccount')
+                      : mode === 'forgot'
+                        ? t('auth.resetTitle')
+                        : t('auth.welcomeBack')}
+                  </h1>
+                  <p className="text-sm text-gray-500 mt-1.5">
+                    {mode === 'signup'
+                      ? t('auth.createSubtitle')
+                      : mode === 'forgot'
+                        ? t('auth.resetSubtitle')
+                        : t('auth.signInSubtitle')}
+                  </p>
+                </header>
+
+                {mode !== 'forgot' && (
+                  <div className="flex gap-2 mb-6 p-1 bg-black/25 rounded-xl border border-white/[0.05]">
+                    {(
+                      [
+                        { id: 'signin', label: t('auth.signIn') },
+                        { id: 'signup', label: t('auth.signUp') },
+                      ] as const
+                    ).map((option) => {
+                      const active = mode === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => switchMode(option.id)}
+                          className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                            active
+                              ? 'bg-gradient-to-b from-white/[0.14] to-white/[0.05] text-white border border-white/[0.08]'
+                              : 'text-gray-500 hover:text-gray-300'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              </div>
-            )}
 
-            {error && (
-              <div className="text-sm text-red-400 bg-red-950/30 border border-red-900/30 rounded-lg px-4 py-2.5">
-                {error}
-              </div>
-            )}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {mode === 'signup' && (
+                    <Field label={t('auth.name')} icon={<User className="w-4 h-4" />} delay={0}>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={t('auth.namePlaceholder')}
+                        autoComplete="name"
+                        className="w-full bg-transparent outline-none text-sm text-white placeholder:text-gray-600"
+                      />
+                    </Field>
+                  )}
 
-            {notice && (
-              <div className="text-sm text-success-300 bg-success-500/8 border border-success-500/20 rounded-lg px-4 py-2.5 flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>{notice}</span>
-              </div>
-            )}
+                  <Field label={t('auth.email')} icon={<Mail className="w-4 h-4" />} delay={1}>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      className="w-full bg-transparent outline-none text-sm text-white placeholder:text-gray-600"
+                    />
+                  </Field>
 
-            <Button type="submit" fullWidth size="lg" disabled={loading}>
-              {loading
-                ? 'Please wait...'
-                : mode === 'signin'
-                  ? t('auth.signin')
-                  : mode === 'signup'
-                    ? t('auth.create')
-                    : t('auth.resetSend')}
-              {!loading && <ArrowRight className="w-4 h-4 rtl:rotate-180" />}
-            </Button>
-          </form>
+                  {mode !== 'forgot' && (
+                    <Field label={t('auth.password')} icon={<Lock className="w-4 h-4" />} delay={2}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                        className="w-full bg-transparent outline-none text-sm text-white placeholder:text-gray-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="text-gray-500 hover:text-gray-300 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </Field>
+                  )}
+
+                  {mode === 'signup' && password.length > 0 && (
+                    <div className="flex items-center gap-2.5 -mt-1">
+                      <div className="flex gap-1 flex-1">
+                        {[0, 1, 2].map((bar) => (
+                          <span
+                            key={bar}
+                            className={`h-1 flex-1 rounded-full transition-colors ${
+                              bar < strength.level
+                                ? strength.level === 1
+                                  ? 'bg-red-400'
+                                  : strength.level === 2
+                                    ? 'bg-warning-400'
+                                    : 'bg-success-400'
+                                : 'bg-white/[0.08]'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-gray-500">{strength.label}</span>
+                    </div>
+                  )}
+
+                  {mode === 'signup' && (
+                    <Field label={t('auth.confirmPassword')} icon={<Check className="w-4 h-4" />} delay={3}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={confirm}
+                        onChange={(e) => setConfirm(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        className="w-full bg-transparent outline-none text-sm text-white placeholder:text-gray-600"
+                      />
+                    </Field>
+                  )}
+
+                  {mode === 'signup' && (
+                    <label className="flex items-center gap-2.5 text-xs text-gray-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={terms}
+                        onChange={(e) => setTerms(e.target.checked)}
+                        className="w-4 h-4 rounded accent-primary-500"
+                      />
+                      {t('auth.terms')}
+                    </label>
+                  )}
+
+                  {mode === 'signin' && (
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot')}
+                      className="text-[11px] text-gray-500 hover:text-primary-400 transition-colors inline-flex items-center gap-1"
+                    >
+                      <KeyRound className="w-3 h-3" /> {t('auth.forgot')}
+                    </button>
+                  )}
+
+                  {error && (
+                    <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/25 rounded-lg px-4 py-2.5">
+                      {error}
+                    </div>
+                  )}
+
+                  {notice && (
+                    <div className="text-sm text-success-300 bg-success-500/10 border border-success-500/25 rounded-lg px-4 py-2.5 flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{notice}</span>
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    fullWidth
+                    size="lg"
+                    loading={loading}
+                    className="relative overflow-hidden"
+                  >
+                    {mode === 'signup'
+                      ? t('auth.createAccount')
+                      : mode === 'forgot'
+                        ? t('auth.sendReset')
+                        : t('auth.signIn')}
+                    {!loading && (
+                      <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                    )}
+                  </Button>
+                </form>
+
+                <footer className="mt-6 pt-5 border-t border-white/[0.06] text-center">
+                  <p className="text-xs text-gray-500">
+                    {mode === 'signup' ? t('auth.haveAccount') : t('auth.noAccount')}{' '}
+                    <button
+                      onClick={() => switchMode(mode === 'signup' ? 'signin' : 'signup')}
+                      className="text-primary-400 hover:text-primary-300 transition-colors font-semibold"
+                    >
+                      {mode === 'signup' ? t('auth.signIn') : t('auth.signUp')}
+                    </button>
+                  </p>
+                </footer>
+              </>
+            )}
+          </section>
         </motion.div>
+      </div>
 
-        {/* What the app does — the promise, not a slogan */}
-        <motion.ul
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-6 space-y-2"
-        >
-          {benefits.map((benefit) => (
-            <li key={benefit} className="flex items-start gap-2 text-[11px] text-gray-500 leading-relaxed">
-              <Sparkles className="w-3.5 h-3.5 text-primary-400/70 mt-0.5 flex-shrink-0" />
-              <span>{benefit}</span>
-            </li>
-          ))}
-        </motion.ul>
+      <div className="relative pb-8 flex items-center justify-center gap-2 text-[11px] text-gray-600">
+        <Sparkles className="w-3.5 h-3.5" />
+        <span>{t('auth.footer')}</span>
       </div>
     </div>
   );
+}
+
+/** A labelled input with an icon, matching the standalone design. */
+function Field({
+  label,
+  icon,
+  delay,
+  children,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  delay: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.05 * delay, ease: [0.16, 1, 0.3, 1] }}
+      className="space-y-1.5"
+    >
+      <label className="block text-xs font-semibold text-gray-400">{label}</label>
+      <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[var(--input-bg)] border border-white/[0.07] focus-within:border-primary-500/45 transition-colors">
+        <span className="text-gray-500 flex-shrink-0">{icon}</span>
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
+/**
+ * The animated background: drifting orbs, a faint grid and slow particles —
+ * the same ingredients as the standalone page, rebuilt in Tailwind.
+ */
+function AuthBackdrop() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+      <div className="absolute -top-24 -left-24 w-[26rem] h-[26rem] rounded-full bg-primary-500/25 blur-[70px] animate-float" />
+      <div className="absolute top-1/3 -right-32 w-[24rem] h-[24rem] rounded-full bg-accent-500/20 blur-[70px] animate-float [animation-delay:2s]" />
+      <div className="absolute -bottom-32 left-1/4 w-[22rem] h-[22rem] rounded-full bg-purple-500/15 blur-[70px] animate-float [animation-delay:4s]" />
+      <div
+        className="absolute inset-0 opacity-[0.045]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          maskImage: 'radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%)',
+        }}
+      />
+      {[
+        'top-[18%] left-[16%]',
+        'top-[62%] left-[8%]',
+        'top-[32%] right-[12%]',
+        'top-[78%] right-[22%]',
+        'top-[12%] left-[52%]',
+        'top-[52%] left-[38%]',
+      ].map((position, index) => (
+        <span
+          key={position}
+          className={`absolute ${position} w-1 h-1 rounded-full bg-white/40 animate-float`}
+          style={{ animationDelay: `${index * 0.9}s`, animationDuration: '7s' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Password strength, from the shape of the password itself. */
+function passwordStrength(password: string): { level: number; label: string } {
+  if (password.length === 0) return { level: 0, label: '' };
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
+  const level = Math.max(1, Math.min(3, score));
+  const label = level === 1 ? 'Weak' : level === 2 ? 'Fair' : 'Strong';
+  return { level, label };
+}
+
+/** True when the interface language is Arabic (so the layout mirrors). */
+function isArabic(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.lang === 'ar';
 }
 
 /** Turns raw Supabase messages into something a learner can act on. */
