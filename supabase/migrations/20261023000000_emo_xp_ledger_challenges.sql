@@ -63,11 +63,13 @@ CREATE POLICY "update_own_challenges" ON challenges FOR UPDATE TO authenticated 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS streak_freezes int NOT NULL DEFAULT 0;
 
 -- ---------------------------------------------------------------------------
--- 4. The hourly drill slot
+-- 4. The hourly lesson slot
 -- ---------------------------------------------------------------------------
--- A learner gets one drill per hour; the slot is the local day and hour, so
--- the drill changes every hour and is stable within it.
+-- A learner gets one lesson per hour; the slot is the local day and hour, so
+-- the lesson changes every hour and is stable within it.
 ALTER TABLE daily_lessons ADD COLUMN IF NOT EXISTS hourly_slot text;
+
+CREATE INDEX IF NOT EXISTS idx_daily_lessons_slot ON daily_lessons(user_id, hourly_slot);
 
 -- ---------------------------------------------------------------------------
 -- 5. award_xp with a ledger row
