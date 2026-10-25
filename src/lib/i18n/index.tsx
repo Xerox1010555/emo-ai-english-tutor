@@ -176,7 +176,10 @@ const DICTIONARY: Record<UiLanguage, Record<string, string>> = {
 
     'auth.tagline': 'Your personal AI English learning assistant',
     'auth.signin': 'Sign In',
+    'auth.signIn': 'Sign In',
     'auth.signup': 'Sign Up',
+    'auth.signUp': 'Sign Up',
+    'auth.sendReset': 'Send reset link',
     'auth.email': 'Email',
     'auth.password': 'Password',
     'auth.create': 'Create Account',
@@ -356,7 +359,10 @@ const DICTIONARY: Record<UiLanguage, Record<string, string>> = {
 
     'auth.tagline': 'مدرّسك الشخصي للغة الإنجليزية بالذكاء الاصطناعي',
     'auth.signin': 'دخول',
+    'auth.signIn': 'تسجيل الدخول',
     'auth.signup': 'حساب جديد',
+    'auth.signUp': 'حساب جديد',
+    'auth.sendReset': 'إرسال الرابط',
     'auth.email': 'البريد الإلكتروني',
     'auth.password': 'كلمة المرور',
     'auth.create': 'إنشاء الحساب',

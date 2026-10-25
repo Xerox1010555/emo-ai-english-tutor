@@ -258,9 +258,6 @@ day at 03:00 for UTC+3 learners and quietly broke streaks and quests.
 
 ## Known limitations
 
-- **Background notifications.** Reminders use the Web Notification API and fire
-  while a tab is open. Delivering them with the app closed needs a service
-  worker with Web Push and a VAPID backend, which is not implemented.
 - **Rate limiting is per edge instance.** The in-memory limiter bounds a
   single abuse burst per instance; a global quota needs a database counter.
 - **Level changes are conservative.** The app estimates a CEFR position from
